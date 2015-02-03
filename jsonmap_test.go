@@ -3,12 +3,17 @@ package jsonmap
 import "testing"
 
 type InnerThing struct {
-	Foo string
+	Foo   string
+	AnInt int
+	ABool bool
 }
 
 type OuterThing struct {
 	Bar        string
 	InnerThing InnerThing
+}
+
+type UnregisteredThing struct {
 }
 
 var InnerThingTypeMap = TypeMap{
@@ -18,6 +23,18 @@ var InnerThingTypeMap = TypeMap{
 			StructFieldName: "Foo",
 			JSONFieldName:   "foo",
 			Validator:       String(1, 255),
+		},
+		{
+			StructFieldName: "AnInt",
+			JSONFieldName:   "an_int",
+			Validator:       Integer(0, 10),
+			Optional:        true,
+		},
+		{
+			StructFieldName: "ABool",
+			JSONFieldName:   "a_bool",
+			Validator:       Boolean(),
+			Optional:        true,
 		},
 	},
 }
@@ -43,9 +60,9 @@ var TestTypeMapper = NewTypeMapper(
 	OuterThingTypeMap,
 )
 
-func TestValidateProject(t *testing.T) {
+func TestValidateInnerThing(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"foo": "fooz"}`), v)
+	err := TestTypeMapper.Unmarshal([]byte(`{"foo": "fooz", "an_int": 10, "a_bool": true}`), v)
 	if err != nil {
 		t.Fatal(err)
 	}

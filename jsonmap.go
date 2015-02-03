@@ -54,8 +54,12 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 		}
 
 		val, ok := data[field.JSONFieldName]
-		if !field.Optional && !ok {
-			return NewValidationError("missing required field: %s", field.JSONFieldName)
+		if !ok {
+			if field.Optional {
+				continue
+			} else {
+				return NewValidationError("missing required field: %s", field.JSONFieldName)
+			}
 		}
 
 		if field.Contains != nil {
