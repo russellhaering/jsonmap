@@ -1,9 +1,6 @@
 package jsonmap
 
-import (
-	"reflect"
-	"testing"
-)
+import "testing"
 
 type InnerThing struct {
 	Foo string
@@ -15,7 +12,7 @@ type OuterThing struct {
 }
 
 var InnerThingTypeMap = TypeMap{
-	reflect.TypeOf(InnerThing{}),
+	InnerThing{},
 	[]MappedField{
 		{
 			StructFieldName: "Foo",
@@ -26,7 +23,7 @@ var InnerThingTypeMap = TypeMap{
 }
 
 var OuterThingTypeMap = TypeMap{
-	reflect.TypeOf(OuterThing{}),
+	OuterThing{},
 	[]MappedField{
 		{
 			StructFieldName: "Bar",

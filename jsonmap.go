@@ -37,7 +37,7 @@ type MappedField struct {
 }
 
 type TypeMap struct {
-	UnderlyingType reflect.Type
+	UnderlyingType interface{}
 	Fields         []MappedField
 }
 
@@ -86,7 +86,7 @@ func NewTypeMapper(maps ...TypeMap) *TypeMapper {
 		typeMaps: make(map[reflect.Type]TypeMap),
 	}
 	for _, m := range maps {
-		t.typeMaps[m.UnderlyingType] = m
+		t.typeMaps[reflect.TypeOf(m.UnderlyingType)] = m
 	}
 	return t
 }
