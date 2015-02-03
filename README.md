@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/russellhaering/jsonmap.svg?branch=master)](https://travis-ci.org/russellhaering/jsonmap)
+[![Coverage Status](https://coveralls.io/repos/russellhaering/jsonmap/badge.svg)](https://coveralls.io/r/russellhaering/jsonmap)
 
 # JSON validator and mapper
 
