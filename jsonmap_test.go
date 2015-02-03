@@ -162,3 +162,25 @@ func TestValidateIntegerNumericTypeMismatch(t *testing.T) {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
+
+func TestValidateIntegerTooSmall(t *testing.T) {
+	v := &InnerThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{"an_int": -1}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "error validating field 'an_int': too small, must be at least 0" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestValidateIntegerTooLarge(t *testing.T) {
+	v := &InnerThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{"an_int": 2048}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "error validating field 'an_int': too large, may not be larger than 10" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}

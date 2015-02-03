@@ -58,7 +58,17 @@ func (v *integerValidator) Validate(value interface{}) (interface{}, error) {
 	if !ok || float64(int(f)) != f {
 		return nil, NewValidationError("not an integer")
 	}
-	return int(f), nil
+
+	i := int(f)
+	if i < v.minVal {
+		return nil, NewValidationError("too small, must be at least %d", v.minVal)
+	}
+
+	if i > v.maxVal {
+		return nil, NewValidationError("too large, may not be larger than %d", v.maxVal)
+	}
+
+	return i, nil
 }
 
 func Integer(minVal, maxVal int) Validator {
