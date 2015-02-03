@@ -51,7 +51,8 @@ func main() {
 ## Why?
 
 Use of struct tags to describe how to map JSON encourages bad design patterns.
-Developers end putting JSON struct tags onto database objects (which should
-have no idea how some other layer might choose to serialize them) or writing
-tons of boiler plate to map API level structures to database objects. Using
-`jsonmap` is a way to avoid that boilerplate.
+Developers end up putting JSON struct tags in places they have no business
+(like database objects, which should have no idea how some other layer might
+choose to serialize them) or writing tons of boiler plate to map API level
+structures to database objects. Using `jsonmap` is a way to avoid that
+boilerplate.
