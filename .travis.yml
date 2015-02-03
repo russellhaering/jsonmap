@@ -5,5 +5,8 @@ go:
   - tip
 install:
   - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
 script:
-  - go test -v -cover
+  - go test -v -cover -covermode=count -coverprofile=cover.prof
+  - cat cover.prof
+  - goveralls -coverprofile cover.prof -repotoken $COVERALLS_TOKEN
