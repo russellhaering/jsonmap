@@ -184,3 +184,36 @@ func TestValidateIntegerTooLarge(t *testing.T) {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
+
+func TestMarshalInnerThing(t *testing.T) {
+	v := &InnerThing{
+		Foo:   "bar",
+		AnInt: 7,
+		ABool: true,
+	}
+	data, err := TestTypeMapper.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"a_bool":true,"an_int":7,"foo":"bar"}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
+func TestMarshalOuterThing(t *testing.T) {
+	v := &OuterThing{
+		Bar: "bang",
+		InnerThing: InnerThing{
+			Foo:   "bar",
+			AnInt: 3,
+			ABool: false,
+		},
+	}
+	data, err := TestTypeMapper.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"bar":"bang","inner_thing":{"a_bool":false,"an_int":3,"foo":"bar"}}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}

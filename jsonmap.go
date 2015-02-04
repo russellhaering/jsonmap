@@ -24,14 +24,15 @@ type Validator interface {
 	Validate(interface{}) (interface{}, error)
 }
 
-type Unmarshaler interface {
+type Encoder interface {
 	Unmarshal(partial interface{}, dstValue reflect.Value) error
+	Marshal(reflect.Value) (json.Marshaler, error)
 }
 
 type MappedField struct {
 	StructFieldName string
 	JSONFieldName   string
-	Contains        Unmarshaler
+	Contains        Encoder
 	Validator       Validator
 	Optional        bool
 }
@@ -39,6 +40,14 @@ type MappedField struct {
 type TypeMap struct {
 	UnderlyingType interface{}
 	Fields         []MappedField
+}
+
+type russellRawMessage struct {
+	Data []byte
+}
+
+func (rm russellRawMessage) MarshalJSON() ([]byte, error) {
+	return rm.Data, nil
 }
 
 func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
@@ -81,6 +90,38 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	return nil
 }
 
+func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+	result := map[string]interface{}{}
+
+	for _, field := range tm.Fields {
+		srcField := src.FieldByName(field.StructFieldName)
+		if !srcField.IsValid() {
+			panic("No such underlying field: " + field.StructFieldName)
+		}
+
+		if field.Contains != nil {
+			val, err := field.Contains.Marshal(srcField)
+			if err != nil {
+				return nil, err
+			}
+			result[field.JSONFieldName] = val
+		} else {
+			result[field.JSONFieldName] = srcField.Interface()
+		}
+
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return russellRawMessage{data}, nil
+}
+
 type TypeMapper struct {
 	typeMaps map[reflect.Type]TypeMap
 }
@@ -95,18 +136,23 @@ func NewTypeMapper(maps ...TypeMap) *TypeMapper {
 	return t
 }
 
-func (tm *TypeMapper) Unmarshal(data []byte, dest interface{}) error {
-	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
+func (tm *TypeMapper) getTypeMap(obj interface{}) TypeMap {
+	if reflect.TypeOf(obj).Kind() != reflect.Ptr {
 		panic("dst is not a pointer")
 	}
 
-	t := reflect.TypeOf(dest).Elem()
+	t := reflect.TypeOf(obj).Elem()
 	m, ok := tm.typeMaps[t]
 
 	if !ok {
 		panic("no TypeMap registered for type: " + t.String())
 	}
 
+	return m
+}
+
+func (tm *TypeMapper) Unmarshal(data []byte, dest interface{}) error {
+	m := tm.getTypeMap(dest)
 	partial := map[string]interface{}{}
 
 	err := json.Unmarshal(data, &partial)
@@ -115,4 +161,13 @@ func (tm *TypeMapper) Unmarshal(data []byte, dest interface{}) error {
 	}
 
 	return m.Unmarshal(partial, reflect.ValueOf(dest).Elem())
+}
+
+func (tm *TypeMapper) Marshal(src interface{}) ([]byte, error) {
+	m := tm.getTypeMap(src)
+	data, err := m.Marshal(reflect.ValueOf(src))
+	if err != nil {
+		return nil, err
+	}
+	return data.MarshalJSON()
 }
