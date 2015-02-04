@@ -9,8 +9,11 @@ type InnerThing struct {
 }
 
 type OuterThing struct {
-	Bar        string
 	InnerThing InnerThing
+}
+
+type OuterPointerThing struct {
+	InnerThing *InnerThing
 }
 
 type UnregisteredThing struct {
@@ -44,10 +47,16 @@ var OuterThingTypeMap = TypeMap{
 	OuterThing{},
 	[]MappedField{
 		{
-			StructFieldName: "Bar",
-			JSONFieldName:   "bar",
-			Validator:       String(1, 255),
+			StructFieldName: "InnerThing",
+			JSONFieldName:   "inner_thing",
+			Contains:        InnerThingTypeMap,
 		},
+	},
+}
+
+var OuterPointerThingTypeMap = TypeMap{
+	OuterPointerThing{},
+	[]MappedField{
 		{
 			StructFieldName: "InnerThing",
 			JSONFieldName:   "inner_thing",
@@ -59,6 +68,7 @@ var OuterThingTypeMap = TypeMap{
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
+	OuterPointerThingTypeMap,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -74,15 +84,12 @@ func TestValidateInnerThing(t *testing.T) {
 
 func TestValidateOuterThing(t *testing.T) {
 	v := &OuterThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"bar": "bazam", "inner_thing": {"foo": "fooz"}}`), v)
+	err := TestTypeMapper.Unmarshal([]byte(`{"inner_thing": {"foo": "fooz"}}`), v)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v.InnerThing.Foo != "fooz" {
 		t.Fatal("Inner field Foo does not have expected value 'fooz':", v.InnerThing.Foo)
-	}
-	if v.Bar != "bazam" {
-		t.Fatal("Outer field Bar does not have expected value 'bazam':", v.Bar)
 	}
 }
 
@@ -202,7 +209,6 @@ func TestMarshalInnerThing(t *testing.T) {
 
 func TestMarshalOuterThing(t *testing.T) {
 	v := &OuterThing{
-		Bar: "bang",
 		InnerThing: InnerThing{
 			Foo:   "bar",
 			AnInt: 3,
@@ -213,7 +219,24 @@ func TestMarshalOuterThing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != `{"bar":"bang","inner_thing":{"a_bool":false,"an_int":3,"foo":"bar"}}` {
+	if string(data) != `{"inner_thing":{"a_bool":false,"an_int":3,"foo":"bar"}}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
+func TestMarshalOuterPointerThing(t *testing.T) {
+	v := &OuterPointerThing{
+		InnerThing: &InnerThing{
+			Foo:   "bar",
+			AnInt: 3,
+			ABool: false,
+		},
+	}
+	data, err := TestTypeMapper.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"inner_thing":{"a_bool":false,"an_int":3,"foo":"bar"}}` {
 		t.Fatal("Unexpected Marshal output:", string(data))
 	}
 }
