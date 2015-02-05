@@ -71,19 +71,23 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 			}
 		}
 
-		if field.Contains != nil {
-			return field.Contains.Unmarshal(val, dstField)
-		} else {
-			val, err := field.Validator.Validate(val)
-			if err != nil {
-				if ve, ok := err.(*ValidationError); ok {
-					return NewValidationError("error validating field '%s': %s", field.JSONFieldName, ve.Error())
-				} else {
-					return err
-				}
-			}
+		var err error
 
-			dstField.Set(reflect.ValueOf(val))
+		if field.Contains != nil {
+			err = field.Contains.Unmarshal(val, dstField)
+		} else {
+			val, err = field.Validator.Validate(val)
+			if err == nil {
+				dstField.Set(reflect.ValueOf(val))
+			}
+		}
+
+		if err != nil {
+			if ve, ok := err.(*ValidationError); ok {
+				return NewValidationError("error validating field '%s': %s", field.JSONFieldName, ve.Error())
+			} else {
+				return err
+			}
 		}
 	}
 
