@@ -167,6 +167,9 @@ func (tm *TypeMapper) Unmarshal(data []byte, dest interface{}) error {
 
 	err := json.Unmarshal(data, &partial)
 	if err != nil {
+		if _, ok := err.(*json.SyntaxError); ok {
+			err = NewValidationError(err.Error())
+		}
 		return err
 	}
 
