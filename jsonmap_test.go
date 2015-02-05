@@ -26,6 +26,10 @@ type OuterPointerThing struct {
 	InnerThing *InnerThing
 }
 
+type ReadOnlyThing struct {
+	PrimaryKey string
+}
+
 type UnregisteredThing struct {
 }
 
@@ -83,6 +87,17 @@ var OuterPointerThingTypeMap = TypeMap{
 	},
 }
 
+var ReadOnlyThingTypeMap = TypeMap{
+	ReadOnlyThing{},
+	[]MappedField{
+		{
+			StructFieldName: "PrimaryKey",
+			JSONFieldName:   "primary_key",
+			ReadOnly:        true,
+		},
+	},
+}
+
 var TypoedThingTypeMap = TypeMap{
 	TypoedThing{},
 	[]MappedField{
@@ -109,6 +124,7 @@ var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
 	OuterPointerThingTypeMap,
+	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
 	BrokenThingTypeMap,
 )
@@ -132,6 +148,28 @@ func TestValidateOuterThing(t *testing.T) {
 	}
 	if v.InnerThing.Foo != "fooz" {
 		t.Fatal("Inner field Foo does not have expected value 'fooz':", v.InnerThing.Foo)
+	}
+}
+
+func TestValidateReadOnlyThing(t *testing.T) {
+	v := &ReadOnlyThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{"primary_key": "foo"}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.PrimaryKey != "" {
+		t.Fatal("ReadOnly field unexpectedly set")
+	}
+}
+
+func TestValidateReadOnlyThingValueNotProvided(t *testing.T) {
+	v := &ReadOnlyThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.PrimaryKey != "" {
+		t.Fatal("ReadOnly field unexpectedly set")
 	}
 }
 

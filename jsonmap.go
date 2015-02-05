@@ -36,6 +36,7 @@ type MappedField struct {
 	Contains        Encoder
 	Validator       Validator
 	Optional        bool
+	ReadOnly        bool
 }
 
 type TypeMap struct {
@@ -58,6 +59,10 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	}
 
 	for _, field := range tm.Fields {
+		if field.ReadOnly {
+			continue
+		}
+
 		dstField := dstValue.FieldByName(field.StructFieldName)
 		if !dstField.IsValid() {
 			panic("No such underlying field: " + field.StructFieldName)
