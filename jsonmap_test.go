@@ -1,6 +1,9 @@
 package jsonmap
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 type InnerThing struct {
 	Foo   string
@@ -206,6 +209,42 @@ func TestValidateIntegerTooLarge(t *testing.T) {
 	if err.Error() != "error validating field 'an_int': too large, may not be larger than 10" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
+}
+
+func TestUnmarshalList(t *testing.T) {
+	v := &InnerThing{}
+	err := InnerThingTypeMap.Unmarshal([]interface{}{}, reflect.ValueOf(v))
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "expected a JSON object" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestUnmarshalMissingRequiredField(t *testing.T) {
+	v := &OuterThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "missing required field: inner_thing" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestUnmarshalNonPointer(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("No panic")
+		}
+		if r != "cannot map a non-pointer" {
+			t.Fatal("Incorrect panic message", r)
+		}
+	}()
+	v := InnerThing{}
+	TestTypeMapper.Unmarshal([]byte(`{}`), v)
 }
 
 func TestMarshalInnerThing(t *testing.T) {

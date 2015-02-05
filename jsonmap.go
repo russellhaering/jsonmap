@@ -143,7 +143,7 @@ func NewTypeMapper(maps ...TypeMap) *TypeMapper {
 
 func (tm *TypeMapper) getTypeMap(obj interface{}) TypeMap {
 	if reflect.TypeOf(obj).Kind() != reflect.Ptr {
-		panic("dst is not a pointer")
+		panic("cannot map a non-pointer")
 	}
 
 	t := reflect.TypeOf(obj).Elem()
