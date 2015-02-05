@@ -1,6 +1,7 @@
 package jsonmap
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -174,4 +175,21 @@ func (tm *TypeMapper) Marshal(src interface{}) ([]byte, error) {
 		return nil, err
 	}
 	return data.MarshalJSON()
+}
+
+func (tm *TypeMapper) MarshalIndent(src interface{}, prefix, indent string) ([]byte, error) {
+	// This is nuts, but equivalent to how json.MarshalIndent() works
+	data, err := tm.Marshal(src)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := &bytes.Buffer{}
+
+	err = json.Indent(buf, data, prefix, indent)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }

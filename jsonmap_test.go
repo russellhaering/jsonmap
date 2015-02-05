@@ -286,3 +286,27 @@ func TestUnmarshalNoSuchStructField(t *testing.T) {
 	v := &TypoedThing{}
 	TestTypeMapper.Unmarshal([]byte(`{"correct": false}`), v)
 }
+
+func TestMarshalIndent(t *testing.T) {
+	v := &OuterThing{
+		InnerThing: InnerThing{
+			Foo:   "bar",
+			AnInt: 3,
+			ABool: false,
+		},
+	}
+	expected := "{\n" +
+		"    \"inner_thing\": {\n" +
+		"        \"a_bool\": false,\n" +
+		"        \"an_int\": 3,\n" +
+		"        \"foo\": \"bar\"\n" +
+		"    }\n" +
+		"}"
+	data, err := TestTypeMapper.MarshalIndent(v, "", "    ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != expected {
+		t.Fatal("Unexpected Marshal output:", string(data), expected)
+	}
+}
