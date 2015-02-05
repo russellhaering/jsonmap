@@ -1,9 +1,16 @@
 package jsonmap
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 )
+
+type brokenValidator struct{}
+
+func (v brokenValidator) Validate(interface{}) (interface{}, error) {
+	return nil, errors.New("this should be a ValidationError")
+}
 
 type InnerThing struct {
 	Foo   string
@@ -24,6 +31,10 @@ type UnregisteredThing struct {
 
 type TypoedThing struct {
 	Correct bool
+}
+
+type BrokenThing struct {
+	Invalid string
 }
 
 var InnerThingTypeMap = TypeMap{
@@ -83,11 +94,23 @@ var TypoedThingTypeMap = TypeMap{
 	},
 }
 
+var BrokenThingTypeMap = TypeMap{
+	BrokenThing{},
+	[]MappedField{
+		{
+			StructFieldName: "Invalid",
+			JSONFieldName:   "invalid",
+			Validator:       brokenValidator{},
+		},
+	},
+}
+
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
 	OuterPointerThingTypeMap,
 	TypoedThingTypeMap,
+	BrokenThingTypeMap,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -207,6 +230,20 @@ func TestValidateIntegerTooLarge(t *testing.T) {
 		t.Fatal("Unexpected success")
 	}
 	if err.Error() != "error validating field 'an_int': too large, may not be larger than 10" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestValidateWithUnexpectedError(t *testing.T) {
+	v := &BrokenThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{"invalid": "definitely"}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if _, ok := err.(*ValidationError); ok {
+		t.Fatal("Unexpectedly received a proper ValidationError")
+	}
+	if err.Error() != "this should be a ValidationError" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
