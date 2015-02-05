@@ -19,6 +19,10 @@ type OuterPointerThing struct {
 type UnregisteredThing struct {
 }
 
+type TypoedThing struct {
+	Correct bool
+}
+
 var InnerThingTypeMap = TypeMap{
 	InnerThing{},
 	[]MappedField{
@@ -65,10 +69,22 @@ var OuterPointerThingTypeMap = TypeMap{
 	},
 }
 
+var TypoedThingTypeMap = TypeMap{
+	TypoedThing{},
+	[]MappedField{
+		{
+			StructFieldName: "Incorrect",
+			JSONFieldName:   "correct",
+			Validator:       Boolean(),
+		},
+	},
+}
+
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
 	OuterPointerThingTypeMap,
+	TypoedThingTypeMap,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -239,4 +255,34 @@ func TestMarshalOuterPointerThing(t *testing.T) {
 	if string(data) != `{"inner_thing":{"a_bool":false,"an_int":3,"foo":"bar"}}` {
 		t.Fatal("Unexpected Marshal output:", string(data))
 	}
+}
+
+func TestMarshalNoSuchStructField(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("No panic")
+		}
+		if r != "No such underlying field: Incorrect" {
+			t.Fatal("Incorrect panic message", r)
+		}
+	}()
+	v := &TypoedThing{
+		Correct: false,
+	}
+	TestTypeMapper.Marshal(v)
+}
+
+func TestUnmarshalNoSuchStructField(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("No panic")
+		}
+		if r != "No such underlying field: Incorrect" {
+			t.Fatal("Incorrect panic message", r)
+		}
+	}()
+	v := &TypoedThing{}
+	TestTypeMapper.Unmarshal([]byte(`{"correct": false}`), v)
 }
