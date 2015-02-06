@@ -100,6 +100,14 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	return nil
 }
 
+func (tm TypeMap) marshalField(field MappedField, srcField reflect.Value) (interface{}, error) {
+	if field.Contains != nil {
+		return field.Contains.Marshal(srcField)
+	} else {
+		return srcField.Interface(), nil
+	}
+}
+
 func (tm TypeMap) marshalStruct(src reflect.Value) (json.Marshaler, error) {
 	result := map[string]interface{}{}
 
@@ -109,15 +117,12 @@ func (tm TypeMap) marshalStruct(src reflect.Value) (json.Marshaler, error) {
 			panic("No such underlying field: " + field.StructFieldName)
 		}
 
-		if field.Contains != nil {
-			val, err := field.Contains.Marshal(srcField)
-			if err != nil {
-				return nil, err
-			}
-			result[field.JSONFieldName] = val
-		} else {
-			result[field.JSONFieldName] = srcField.Interface()
+		val, err := tm.marshalField(field, srcField)
+		if err != nil {
+			return nil, err
 		}
+
+		result[field.JSONFieldName] = val
 	}
 
 	data, err := json.Marshal(result)
