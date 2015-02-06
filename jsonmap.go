@@ -100,10 +100,7 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	return nil
 }
 
-func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
-	if src.Kind() == reflect.Ptr {
-		src = src.Elem()
-	}
+func (tm TypeMap) marshalStruct(src reflect.Value) (json.Marshaler, error) {
 	result := map[string]interface{}{}
 
 	for _, field := range tm.Fields {
@@ -121,7 +118,6 @@ func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 		} else {
 			result[field.JSONFieldName] = srcField.Interface()
 		}
-
 	}
 
 	data, err := json.Marshal(result)
@@ -130,6 +126,38 @@ func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	}
 
 	return russellRawMessage{data}, nil
+}
+
+func (tm TypeMap) marshalSlice(src reflect.Value) (json.Marshaler, error) {
+	result := make([]interface{}, src.Len())
+
+	for i := 0; i < src.Len(); i++ {
+		data, err := tm.Marshal(src.Index(i))
+		if err != nil {
+			return nil, err
+		}
+
+		result[i] = data
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return russellRawMessage{data}, nil
+}
+
+func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+
+	if src.Kind() == reflect.Slice {
+		return tm.marshalSlice(src)
+	} else {
+		return tm.marshalStruct(src)
+	}
 }
 
 type TypeMapper struct {
@@ -147,11 +175,19 @@ func NewTypeMapper(maps ...TypeMap) *TypeMapper {
 }
 
 func (tm *TypeMapper) getTypeMap(obj interface{}) TypeMap {
-	if reflect.TypeOf(obj).Kind() != reflect.Ptr {
-		panic("cannot map a non-pointer")
+	t := reflect.TypeOf(obj)
+
+	// Iterate down through pointers and slices to get a useful type. Mostly this
+	// doesn't seem useful, but we should at least support slices of pointers to
+	// mappable types.
+	for {
+		if t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice {
+			t = t.Elem()
+			continue
+		}
+		break
 	}
 
-	t := reflect.TypeOf(obj).Elem()
 	m, ok := tm.typeMaps[t]
 
 	if !ok {
@@ -162,6 +198,9 @@ func (tm *TypeMapper) getTypeMap(obj interface{}) TypeMap {
 }
 
 func (tm *TypeMapper) Unmarshal(data []byte, dest interface{}) error {
+	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
+		panic("cannot unmarshal to non-pointer")
+	}
 	m := tm.getTypeMap(dest)
 	partial := map[string]interface{}{}
 

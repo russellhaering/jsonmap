@@ -314,7 +314,7 @@ func TestUnmarshalNonPointer(t *testing.T) {
 		if r == nil {
 			t.Fatal("No panic")
 		}
-		if r != "cannot map a non-pointer" {
+		if r != "cannot unmarshal to non-pointer" {
 			t.Fatal("Incorrect panic message", r)
 		}
 	}()
@@ -417,6 +417,52 @@ func TestMarshalIndent(t *testing.T) {
 		"    }\n" +
 		"}"
 	data, err := TestTypeMapper.MarshalIndent(v, "", "    ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != expected {
+		t.Fatal("Unexpected Marshal output:", string(data), expected)
+	}
+}
+
+func TestMarshalSlice(t *testing.T) {
+	v := []InnerThing{
+		{
+			Foo:   "bar",
+			AnInt: 3,
+			ABool: false,
+		},
+		{
+			Foo:   "bam",
+			AnInt: 4,
+			ABool: true,
+		},
+	}
+	expected := `[{"a_bool":false,"an_int":3,"foo":"bar"},{"a_bool":true,"an_int":4,"foo":"bam"}]`
+	data, err := TestTypeMapper.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != expected {
+		t.Fatal("Unexpected Marshal output:", string(data), expected)
+	}
+}
+
+func TestMarshalSliceOfPointers(t *testing.T) {
+	v := []*InnerThing{
+		&InnerThing{
+			Foo:   "bar",
+			AnInt: 3,
+			ABool: false,
+		},
+		&InnerThing{
+			Foo:   "bam",
+			AnInt: 4,
+			ABool: true,
+		},
+	}
+	expected := `[{"a_bool":false,"an_int":3,"foo":"bar"},{"a_bool":true,"an_int":4,"foo":"bam"}]`
+	data, err := TestTypeMapper.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
