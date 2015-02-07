@@ -332,7 +332,7 @@ func TestMarshalInnerThing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != `{"a_bool":true,"an_int":7,"foo":"bar"}` {
+	if string(data) != `{"foo":"bar","an_int":7,"a_bool":true}` {
 		t.Fatal("Unexpected Marshal output:", string(data))
 	}
 }
@@ -349,7 +349,7 @@ func TestMarshalOuterThing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != `{"inner_thing":{"a_bool":false,"an_int":3,"foo":"bar"}}` {
+	if string(data) != `{"inner_thing":{"foo":"bar","an_int":3,"a_bool":false}}` {
 		t.Fatal("Unexpected Marshal output:", string(data))
 	}
 }
@@ -366,7 +366,7 @@ func TestMarshalOuterPointerThing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != `{"inner_thing":{"a_bool":false,"an_int":3,"foo":"bar"}}` {
+	if string(data) != `{"inner_thing":{"foo":"bar","an_int":3,"a_bool":false}}` {
 		t.Fatal("Unexpected Marshal output:", string(data))
 	}
 }
@@ -411,9 +411,9 @@ func TestMarshalIndent(t *testing.T) {
 	}
 	expected := "{\n" +
 		"    \"inner_thing\": {\n" +
-		"        \"a_bool\": false,\n" +
+		"        \"foo\": \"bar\",\n" +
 		"        \"an_int\": 3,\n" +
-		"        \"foo\": \"bar\"\n" +
+		"        \"a_bool\": false\n" +
 		"    }\n" +
 		"}"
 	data, err := TestTypeMapper.MarshalIndent(v, "", "    ")
@@ -438,7 +438,7 @@ func TestMarshalSlice(t *testing.T) {
 			ABool: true,
 		},
 	}
-	expected := `[{"a_bool":false,"an_int":3,"foo":"bar"},{"a_bool":true,"an_int":4,"foo":"bam"}]`
+	expected := `[{"foo":"bar","an_int":3,"a_bool":false},{"foo":"bam","an_int":4,"a_bool":true}]`
 	data, err := TestTypeMapper.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
@@ -461,7 +461,7 @@ func TestMarshalSliceOfPointers(t *testing.T) {
 			ABool: true,
 		},
 	}
-	expected := `[{"a_bool":false,"an_int":3,"foo":"bar"},{"a_bool":true,"an_int":4,"foo":"bam"}]`
+	expected := `[{"foo":"bar","an_int":3,"a_bool":false},{"foo":"bam","an_int":4,"a_bool":true}]`
 	data, err := TestTypeMapper.Marshal(v)
 	if err != nil {
 		t.Fatal(err)

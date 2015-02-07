@@ -100,37 +100,53 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	return nil
 }
 
-func (tm TypeMap) marshalField(field MappedField, srcField reflect.Value) (interface{}, error) {
+func (tm TypeMap) marshalField(field MappedField, srcField reflect.Value) ([]byte, error) {
+	var val interface{}
 	if field.Contains != nil {
-		return field.Contains.Marshal(srcField)
+		var err error
+		val, err = field.Contains.Marshal(srcField)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		return srcField.Interface(), nil
+		val = srcField.Interface()
 	}
+
+	return json.Marshal(val)
 }
 
 func (tm TypeMap) marshalStruct(src reflect.Value) (json.Marshaler, error) {
-	result := map[string]interface{}{}
+	buf := bytes.Buffer{}
+	buf.WriteByte('{')
 
-	for _, field := range tm.Fields {
+	for i, field := range tm.Fields {
 		srcField := src.FieldByName(field.StructFieldName)
 		if !srcField.IsValid() {
 			panic("No such underlying field: " + field.StructFieldName)
 		}
 
-		val, err := tm.marshalField(field, srcField)
+		keybuf, err := json.Marshal(field.JSONFieldName)
 		if err != nil {
 			return nil, err
 		}
 
-		result[field.JSONFieldName] = val
+		valbuf, err := tm.marshalField(field, srcField)
+		if err != nil {
+			return nil, err
+		}
+
+		buf.Write(keybuf)
+		buf.WriteByte(':')
+		buf.Write(valbuf)
+
+		if i != len(tm.Fields)-1 {
+			buf.WriteByte(',')
+		}
 	}
 
-	data, err := json.Marshal(result)
-	if err != nil {
-		return nil, err
-	}
+	buf.WriteByte('}')
 
-	return russellRawMessage{data}, nil
+	return russellRawMessage{buf.Bytes()}, nil
 }
 
 func (tm TypeMap) marshalSlice(src reflect.Value) (json.Marshaler, error) {
