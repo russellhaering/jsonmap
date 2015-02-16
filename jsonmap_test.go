@@ -197,6 +197,17 @@ func TestValidateOuterSliceThing(t *testing.T) {
 	}
 }
 
+func TestValidateOuterSliceThingInvalidElement(t *testing.T) {
+	v := &OuterSliceThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{"inner_things": [{"foo": "fooziswaytoolooong"}]}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "validation error: 'inner_things': index 0: 'foo': too long, may not be more than 12 characters" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
 func TestValidateReadOnlyThing(t *testing.T) {
 	v := &ReadOnlyThing{}
 	err := TestTypeMapper.Unmarshal([]byte(`{"primary_key": "foo"}`), v)
