@@ -69,7 +69,7 @@ func (rm russellRawMessage) MarshalJSON() ([]byte, error) {
 func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.(map[string]interface{})
 	if !ok {
-		return NewValidationError("expected a JSON object")
+		return NewValidationError("expected an object")
 	}
 
 	for _, field := range tm.Fields {
@@ -173,7 +173,7 @@ type SliceTypeMap struct {
 func (tm SliceTypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.([]interface{})
 	if !ok {
-		return NewValidationError("expected a JSON list")
+		return NewValidationError("expected a list")
 	}
 
 	// Appending to a reflect.Value returns a new reflect.Value despite the

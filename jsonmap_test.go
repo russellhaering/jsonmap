@@ -208,6 +208,17 @@ func TestValidateOuterSliceThingInvalidElement(t *testing.T) {
 	}
 }
 
+func TestValidateOuterSliceThingNotAList(t *testing.T) {
+	v := &OuterSliceThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{"inner_things": "foo"}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "validation error: 'inner_things': expected a list" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
 func TestValidateReadOnlyThing(t *testing.T) {
 	v := &ReadOnlyThing{}
 	err := TestTypeMapper.Unmarshal([]byte(`{"primary_key": "foo"}`), v)
@@ -349,7 +360,7 @@ func TestUnmarshalList(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "validation error: expected a JSON object" {
+	if err.Error() != "validation error: expected an object" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
