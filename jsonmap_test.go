@@ -49,6 +49,16 @@ type BrokenThing struct {
 	Invalid string
 }
 
+type NonMarshalableThing struct{}
+
+func (t NonMarshalableThing) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("oops")
+}
+
+type OuterNonMarshalableThing struct {
+	Oops NonMarshalableThing
+}
+
 var InnerThingTypeMap = TypeMap{
 	InnerThing{},
 	[]MappedField{
@@ -150,6 +160,16 @@ var BrokenThingTypeMap = TypeMap{
 	},
 }
 
+var OuterNonMarshalableThingTypeMap = TypeMap{
+	OuterNonMarshalableThing{},
+	[]MappedField{
+		{
+			StructFieldName: "Oops",
+			JSONFieldName:   "oops",
+		},
+	},
+}
+
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
@@ -159,6 +179,7 @@ var TestTypeMapper = NewTypeMapper(
 	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
 	BrokenThingTypeMap,
+	OuterNonMarshalableThingTypeMap,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -506,6 +527,17 @@ func TestUnmarshalNoSuchStructField(t *testing.T) {
 	}()
 	v := &TypoedThing{}
 	TestTypeMapper.Unmarshal([]byte(`{"correct": false}`), v)
+}
+
+func TestMarshalNonMarshalableThing(t *testing.T) {
+	v := &OuterNonMarshalableThing{}
+	_, err := TestTypeMapper.Marshal(v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "json: error calling MarshalJSON for type jsonmap.NonMarshalableThing: oops" {
+		t.Fatal(err.Error())
+	}
 }
 
 func TestMarshalIndent(t *testing.T) {
