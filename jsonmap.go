@@ -9,16 +9,30 @@ import (
 
 type ValidationError struct {
 	reason string
+	rpath  []string
 }
 
 func NewValidationError(reason string, a ...interface{}) *ValidationError {
 	return &ValidationError{
 		reason: fmt.Sprintf(reason, a...),
+		rpath:  make([]string, 0, 2),
 	}
 }
 
 func (e *ValidationError) Error() string {
-	return e.reason
+	msg := e.reason
+	for _, seg := range e.rpath {
+		msg = seg + ": " + msg
+	}
+	return "validation error: " + msg
+}
+
+func (e *ValidationError) PushIndex(idx int) {
+	e.rpath = append(e.rpath, fmt.Sprintf("index %d", idx))
+}
+
+func (e *ValidationError) PushKey(key string) {
+	e.rpath = append(e.rpath, fmt.Sprintf("'%s'", key))
 }
 
 type Validator interface {
@@ -90,10 +104,9 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 
 		if err != nil {
 			if ve, ok := err.(*ValidationError); ok {
-				return NewValidationError("error validating field '%s': %s", field.JSONFieldName, ve.Error())
-			} else {
-				return err
+				ve.PushKey(field.JSONFieldName)
 			}
+			return err
 		}
 	}
 
@@ -179,10 +192,9 @@ func (tm SliceTypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) er
 
 		if err != nil {
 			if ve, ok := err.(*ValidationError); ok {
-				return NewValidationError("error validating index %d: %s", i, ve.Error())
-			} else {
-				return err
+				ve.PushIndex(i)
 			}
+			return err
 		}
 
 		result = reflect.Append(result, dstElem)

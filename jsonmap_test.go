@@ -236,7 +236,7 @@ func TestValidateStringTypeMismatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "error validating field 'foo': not a string" {
+	if err.Error() != "validation error: 'foo': not a string" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -247,7 +247,7 @@ func TestValidateStringTooShort(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "error validating field 'foo': too short, must be at least 1 characters" {
+	if err.Error() != "validation error: 'foo': too short, must be at least 1 characters" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -258,7 +258,7 @@ func TestValidateStringTooLong(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "error validating field 'foo': too long, may not be more than 12 characters" {
+	if err.Error() != "validation error: 'foo': too long, may not be more than 12 characters" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -269,7 +269,7 @@ func TestValidateBooleanTypeMismatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "error validating field 'a_bool': not a boolean" {
+	if err.Error() != "validation error: 'a_bool': not a boolean" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -280,7 +280,7 @@ func TestValidateIntegerTypeMismatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "error validating field 'an_int': not an integer" {
+	if err.Error() != "validation error: 'an_int': not an integer" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -291,7 +291,7 @@ func TestValidateIntegerNumericTypeMismatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "error validating field 'an_int': not an integer" {
+	if err.Error() != "validation error: 'an_int': not an integer" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -302,7 +302,7 @@ func TestValidateIntegerTooSmall(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "error validating field 'an_int': too small, must be at least 0" {
+	if err.Error() != "validation error: 'an_int': too small, must be at least 0" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -313,7 +313,7 @@ func TestValidateIntegerTooLarge(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "error validating field 'an_int': too large, may not be larger than 10" {
+	if err.Error() != "validation error: 'an_int': too large, may not be larger than 10" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -338,7 +338,7 @@ func TestUnmarshalList(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "expected a JSON object" {
+	if err.Error() != "validation error: expected a JSON object" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -349,7 +349,7 @@ func TestUnmarshalMissingRequiredField(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "missing required field: inner_thing" {
+	if err.Error() != "validation error: missing required field: inner_thing" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
