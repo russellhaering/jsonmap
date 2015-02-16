@@ -163,10 +163,17 @@ func (tm SliceTypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) er
 		return NewValidationError("expected a JSON list")
 	}
 
+	// Appending to a reflect.Value returns a new reflect.Value despite the
+	// indirection. So we'll keep a reference to the original one, and Set()
+	// it when we're done constructing the desired Value.
+	result := dstValue
+
 	elementType := dstValue.Type().Elem()
 
 	for i, val := range data {
-		dstElem := reflect.New(elementType)
+		// Note: reflect.New() returns a pointer Value, so we have to take its
+		// Elem() before putting it to use
+		dstElem := reflect.New(elementType).Elem()
 
 		err := tm.Contains.Unmarshal(val, dstElem)
 
@@ -178,8 +185,13 @@ func (tm SliceTypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) er
 			}
 		}
 
-		reflect.Append(dstValue, dstElem)
+		result = reflect.Append(result, dstElem)
 	}
+
+	// Note: this actually works with a reflect.Value of a slice, even though it
+	// wouldn't work with an actual slice because of the second level of
+	// indirection.
+	dstValue.Set(result)
 
 	return nil
 }

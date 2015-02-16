@@ -183,6 +183,20 @@ func TestValidateOuterThing(t *testing.T) {
 	}
 }
 
+func TestValidateOuterSliceThing(t *testing.T) {
+	v := &OuterSliceThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{"inner_things": [{"foo": "fooz"}]}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v.InnerThings) != 1 {
+		t.Fatal("InnerThings should contain 1 element, instead contains", len(v.InnerThings))
+	}
+	if v.InnerThings[0].Foo != "fooz" {
+		t.Fatal("InnerThing field Foo does not have expected value 'fooz':", v.InnerThings[0].Foo)
+	}
+}
+
 func TestValidateReadOnlyThing(t *testing.T) {
 	v := &ReadOnlyThing{}
 	err := TestTypeMapper.Unmarshal([]byte(`{"primary_key": "foo"}`), v)
