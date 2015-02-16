@@ -181,6 +181,67 @@ func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	}
 }
 
+type SliceTypeMap struct {
+	Contains Encoder
+}
+
+func (tm SliceTypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
+	data, ok := partial.([]interface{})
+	if !ok {
+		return NewValidationError("expected a JSON list")
+	}
+
+	elementType := dstValue.Type().Elem()
+
+	for i, val := range data {
+		dstElem := reflect.New(elementType)
+
+		err := tm.Contains.Unmarshal(val, dstElem)
+
+		if err != nil {
+			if ve, ok := err.(*ValidationError); ok {
+				return NewValidationError("error validating index %d: %s", i, ve.Error())
+			} else {
+				return err
+			}
+		}
+
+		reflect.Append(dstValue, dstElem)
+	}
+
+	return nil
+}
+
+func (tm SliceTypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+
+	result := make([]interface{}, src.Len())
+
+	for i := 0; i < src.Len(); i++ {
+		data, err := tm.Contains.Marshal(src.Index(i))
+		if err != nil {
+			return nil, err
+		}
+
+		result[i] = data
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return russellRawMessage{data}, nil
+}
+
+func SliceOf(elem Encoder) Encoder {
+	return SliceTypeMap{
+		Contains: elem,
+	}
+}
+
 type TypeMapper struct {
 	typeMaps map[reflect.Type]TypeMap
 }
