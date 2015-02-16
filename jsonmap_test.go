@@ -529,6 +529,17 @@ func TestUnmarshalNoSuchStructField(t *testing.T) {
 	TestTypeMapper.Unmarshal([]byte(`{"correct": false}`), v)
 }
 
+func TestUnmarshalInvalidJSON(t *testing.T) {
+	v := &InnerThing{}
+	err := TestTypeMapper.Unmarshal([]byte(`{"this is": "definitely invalid JSON]`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "validation error: unexpected end of JSON input" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
 func TestMarshalNonMarshalableThing(t *testing.T) {
 	v := &OuterNonMarshalableThing{}
 	_, err := TestTypeMapper.Marshal(v)
