@@ -26,6 +26,14 @@ type OuterPointerThing struct {
 	InnerThing *InnerThing
 }
 
+type OuterSliceThing struct {
+	InnerThings []InnerThing
+}
+
+type OuterPointerSliceThing struct {
+	InnerThings []*InnerThing
+}
+
 type ReadOnlyThing struct {
 	PrimaryKey string
 }
@@ -87,6 +95,28 @@ var OuterPointerThingTypeMap = TypeMap{
 	},
 }
 
+var OuterSliceThingTypeMap = TypeMap{
+	OuterSliceThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThings",
+			JSONFieldName:   "inner_things",
+			Contains:        SliceOf(InnerThingTypeMap),
+		},
+	},
+}
+
+var OuterPointerSliceThingTypeMap = TypeMap{
+	OuterPointerSliceThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThings",
+			JSONFieldName:   "inner_things",
+			Contains:        SliceOf(InnerThingTypeMap),
+		},
+	},
+}
+
 var ReadOnlyThingTypeMap = TypeMap{
 	ReadOnlyThing{},
 	[]MappedField{
@@ -124,6 +154,8 @@ var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
 	OuterPointerThingTypeMap,
+	OuterSliceThingTypeMap,
+	OuterPointerSliceThingTypeMap,
 	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
 	BrokenThingTypeMap,
@@ -367,6 +399,45 @@ func TestMarshalOuterPointerThing(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(data) != `{"inner_thing":{"foo":"bar","an_int":3,"a_bool":false}}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
+func TestMarshalOuterSliceThing(t *testing.T) {
+	v := &OuterSliceThing{
+		InnerThings: []InnerThing{
+			{
+				Foo:   "bar",
+				AnInt: 3,
+				ABool: false,
+			},
+		},
+	}
+	data, err := TestTypeMapper.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"inner_things":[{"foo":"bar","an_int":3,"a_bool":false}]}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+
+}
+
+func TestMarshalOuterPointerSliceThing(t *testing.T) {
+	v := &OuterPointerSliceThing{
+		InnerThings: []*InnerThing{
+			{
+				Foo:   "bar",
+				AnInt: 3,
+				ABool: false,
+			},
+		},
+	}
+	data, err := TestTypeMapper.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"inner_things":[{"foo":"bar","an_int":3,"a_bool":false}]}` {
 		t.Fatal("Unexpected Marshal output:", string(data))
 	}
 }
