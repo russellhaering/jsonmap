@@ -34,6 +34,10 @@ type OuterPointerSliceThing struct {
 	InnerThings []*InnerThing
 }
 
+type OuterPointerToSliceThing struct {
+	InnerThings *[]InnerThing
+}
+
 type ReadOnlyThing struct {
 	PrimaryKey string
 }
@@ -131,6 +135,17 @@ var OuterPointerSliceThingTypeMap = TypeMap{
 	},
 }
 
+var OuterPointerToSliceThingTypeMap = TypeMap{
+	OuterPointerToSliceThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThings",
+			JSONFieldName:   "inner_things",
+			Contains:        SliceOf(InnerThingTypeMap),
+		},
+	},
+}
+
 var ReadOnlyThingTypeMap = TypeMap{
 	ReadOnlyThing{},
 	[]MappedField{
@@ -191,6 +206,7 @@ var TestTypeMapper = NewTypeMapper(
 	OuterPointerThingTypeMap,
 	OuterSliceThingTypeMap,
 	OuterPointerSliceThingTypeMap,
+	OuterPointerToSliceThingTypeMap,
 	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
 	BrokenThingTypeMap,
@@ -499,6 +515,25 @@ func TestMarshalOuterSliceThing(t *testing.T) {
 func TestMarshalOuterPointerSliceThing(t *testing.T) {
 	v := &OuterPointerSliceThing{
 		InnerThings: []*InnerThing{
+			{
+				Foo:   "bar",
+				AnInt: 3,
+				ABool: false,
+			},
+		},
+	}
+	data, err := TestTypeMapper.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"inner_things":[{"foo":"bar","an_int":3,"a_bool":false}]}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
+func TestMarshalOuterPointerToSliceThing(t *testing.T) {
+	v := &OuterPointerToSliceThing{
+		InnerThings: &[]InnerThing{
 			{
 				Foo:   "bar",
 				AnInt: 3,
