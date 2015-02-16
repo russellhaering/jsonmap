@@ -567,6 +567,19 @@ func TestMarshalNonMarshalableThing(t *testing.T) {
 	}
 }
 
+func TestMarshalSliceOfNonMarshalableThing(t *testing.T) {
+	v := []OuterNonMarshalableThing{
+		{},
+	}
+	_, err := TestTypeMapper.Marshal(v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "json: error calling MarshalJSON for type jsonmap.NonMarshalableType: oops" {
+		t.Fatal(err.Error())
+	}
+}
+
 func TestMarshalIndent(t *testing.T) {
 	v := &OuterThing{
 		InnerThing: InnerThing{
