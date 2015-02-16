@@ -115,7 +115,11 @@ func (tm TypeMap) marshalField(field MappedField, srcField reflect.Value) ([]byt
 	return json.Marshal(val)
 }
 
-func (tm TypeMap) marshalStruct(src reflect.Value) (json.Marshaler, error) {
+func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+
 	buf := bytes.Buffer{}
 	buf.WriteByte('{')
 
@@ -147,38 +151,6 @@ func (tm TypeMap) marshalStruct(src reflect.Value) (json.Marshaler, error) {
 	buf.WriteByte('}')
 
 	return russellRawMessage{buf.Bytes()}, nil
-}
-
-func (tm TypeMap) marshalSlice(src reflect.Value) (json.Marshaler, error) {
-	result := make([]interface{}, src.Len())
-
-	for i := 0; i < src.Len(); i++ {
-		data, err := tm.Marshal(src.Index(i))
-		if err != nil {
-			return nil, err
-		}
-
-		result[i] = data
-	}
-
-	data, err := json.Marshal(result)
-	if err != nil {
-		return nil, err
-	}
-
-	return russellRawMessage{data}, nil
-}
-
-func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
-	if src.Kind() == reflect.Ptr {
-		src = src.Elem()
-	}
-
-	if src.Kind() == reflect.Slice {
-		return tm.marshalSlice(src)
-	} else {
-		return tm.marshalStruct(src)
-	}
 }
 
 type SliceTypeMap struct {
@@ -243,12 +215,12 @@ func SliceOf(elem Encoder) Encoder {
 }
 
 type TypeMapper struct {
-	typeMaps map[reflect.Type]TypeMap
+	typeMaps map[reflect.Type]Encoder
 }
 
 func NewTypeMapper(maps ...TypeMap) *TypeMapper {
 	t := &TypeMapper{
-		typeMaps: make(map[reflect.Type]TypeMap),
+		typeMaps: make(map[reflect.Type]Encoder),
 	}
 	for _, m := range maps {
 		t.typeMaps[reflect.TypeOf(m.UnderlyingType)] = m
@@ -256,24 +228,27 @@ func NewTypeMapper(maps ...TypeMap) *TypeMapper {
 	return t
 }
 
-func (tm *TypeMapper) getTypeMap(obj interface{}) TypeMap {
+func (tm *TypeMapper) getTypeMap(obj interface{}) Encoder {
 	t := reflect.TypeOf(obj)
+	isSlice := false
 
-	// Iterate down through pointers and slices to get a useful type. Mostly this
-	// doesn't seem useful, but we should at least support slices of pointers to
-	// mappable types.
-	for {
-		if t.Kind() == reflect.Ptr || t.Kind() == reflect.Slice {
-			t = t.Elem()
-			continue
-		}
-		break
+	if t.Kind() == reflect.Slice {
+		isSlice = true
+		t = t.Elem()
+	}
+
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
 	}
 
 	m, ok := tm.typeMaps[t]
 
 	if !ok {
 		panic("no TypeMap registered for type: " + t.String())
+	}
+
+	if isSlice {
+		m = SliceOf(m)
 	}
 
 	return m
