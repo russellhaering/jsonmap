@@ -18,7 +18,7 @@ type Dog struct {
 	Age  int
 }
 
-var DogTypeMap = jsonmap.TypeMap{
+var DogTypeMap = jsonmap.StructMap{
 	Dog{},
 	[]jsonmap.MappedField{
 		{

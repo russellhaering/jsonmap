@@ -67,7 +67,7 @@ type OuterNonMarshalableThing struct {
 	InnerThing InnerNonMarshalableThing
 }
 
-var InnerThingTypeMap = TypeMap{
+var InnerThingTypeMap = StructMap{
 	InnerThing{},
 	[]MappedField{
 		{
@@ -91,7 +91,7 @@ var InnerThingTypeMap = TypeMap{
 	},
 }
 
-var OuterThingTypeMap = TypeMap{
+var OuterThingTypeMap = StructMap{
 	OuterThing{},
 	[]MappedField{
 		{
@@ -102,7 +102,7 @@ var OuterThingTypeMap = TypeMap{
 	},
 }
 
-var OuterPointerThingTypeMap = TypeMap{
+var OuterPointerThingTypeMap = StructMap{
 	OuterPointerThing{},
 	[]MappedField{
 		{
@@ -113,7 +113,7 @@ var OuterPointerThingTypeMap = TypeMap{
 	},
 }
 
-var OuterSliceThingTypeMap = TypeMap{
+var OuterSliceThingTypeMap = StructMap{
 	OuterSliceThing{},
 	[]MappedField{
 		{
@@ -124,7 +124,7 @@ var OuterSliceThingTypeMap = TypeMap{
 	},
 }
 
-var OuterPointerSliceThingTypeMap = TypeMap{
+var OuterPointerSliceThingTypeMap = StructMap{
 	OuterPointerSliceThing{},
 	[]MappedField{
 		{
@@ -135,7 +135,7 @@ var OuterPointerSliceThingTypeMap = TypeMap{
 	},
 }
 
-var OuterPointerToSliceThingTypeMap = TypeMap{
+var OuterPointerToSliceThingTypeMap = StructMap{
 	OuterPointerToSliceThing{},
 	[]MappedField{
 		{
@@ -146,7 +146,7 @@ var OuterPointerToSliceThingTypeMap = TypeMap{
 	},
 }
 
-var ReadOnlyThingTypeMap = TypeMap{
+var ReadOnlyThingTypeMap = StructMap{
 	ReadOnlyThing{},
 	[]MappedField{
 		{
@@ -157,7 +157,7 @@ var ReadOnlyThingTypeMap = TypeMap{
 	},
 }
 
-var TypoedThingTypeMap = TypeMap{
+var TypoedThingTypeMap = StructMap{
 	TypoedThing{},
 	[]MappedField{
 		{
@@ -168,7 +168,7 @@ var TypoedThingTypeMap = TypeMap{
 	},
 }
 
-var BrokenThingTypeMap = TypeMap{
+var BrokenThingTypeMap = StructMap{
 	BrokenThing{},
 	[]MappedField{
 		{
@@ -179,7 +179,7 @@ var BrokenThingTypeMap = TypeMap{
 	},
 }
 
-var InnerNonMarshalableThingTypeMap = TypeMap{
+var InnerNonMarshalableThingTypeMap = StructMap{
 	InnerNonMarshalableThing{},
 	[]MappedField{
 		{
@@ -189,7 +189,7 @@ var InnerNonMarshalableThingTypeMap = TypeMap{
 	},
 }
 
-var OuterNonMarshalableThingTypeMap = TypeMap{
+var OuterNonMarshalableThingTypeMap = StructMap{
 	OuterNonMarshalableThing{},
 	[]MappedField{
 		{

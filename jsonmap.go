@@ -39,7 +39,7 @@ type Validator interface {
 	Validate(interface{}) (interface{}, error)
 }
 
-type Encoder interface {
+type TypeMap interface {
 	Unmarshal(partial interface{}, dstValue reflect.Value) error
 	Marshal(reflect.Value) (json.Marshaler, error)
 }
@@ -47,13 +47,13 @@ type Encoder interface {
 type MappedField struct {
 	StructFieldName string
 	JSONFieldName   string
-	Contains        Encoder
+	Contains        TypeMap
 	Validator       Validator
 	Optional        bool
 	ReadOnly        bool
 }
 
-type TypeMap struct {
+type StructMap struct {
 	UnderlyingType interface{}
 	Fields         []MappedField
 }
@@ -66,13 +66,13 @@ func (rm russellRawMessage) MarshalJSON() ([]byte, error) {
 	return rm.Data, nil
 }
 
-func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
+func (sm StructMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.(map[string]interface{})
 	if !ok {
 		return NewValidationError("expected an object")
 	}
 
-	for _, field := range tm.Fields {
+	for _, field := range sm.Fields {
 		if field.ReadOnly {
 			continue
 		}
@@ -113,7 +113,7 @@ func (tm TypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	return nil
 }
 
-func (tm TypeMap) marshalField(field MappedField, srcField reflect.Value) ([]byte, error) {
+func (sm StructMap) marshalField(field MappedField, srcField reflect.Value) ([]byte, error) {
 	var val interface{}
 	if field.Contains != nil {
 		var err error
@@ -128,7 +128,7 @@ func (tm TypeMap) marshalField(field MappedField, srcField reflect.Value) ([]byt
 	return json.Marshal(val)
 }
 
-func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
+func (sm StructMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	if src.Kind() == reflect.Ptr {
 		src = src.Elem()
 	}
@@ -136,7 +136,7 @@ func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	buf := bytes.Buffer{}
 	buf.WriteByte('{')
 
-	for i, field := range tm.Fields {
+	for i, field := range sm.Fields {
 		srcField := src.FieldByName(field.StructFieldName)
 		if !srcField.IsValid() {
 			panic("No such underlying field: " + field.StructFieldName)
@@ -147,7 +147,7 @@ func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 			return nil, err
 		}
 
-		valbuf, err := tm.marshalField(field, srcField)
+		valbuf, err := sm.marshalField(field, srcField)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +156,7 @@ func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 		buf.WriteByte(':')
 		buf.Write(valbuf)
 
-		if i != len(tm.Fields)-1 {
+		if i != len(sm.Fields)-1 {
 			buf.WriteByte(',')
 		}
 	}
@@ -166,11 +166,11 @@ func (tm TypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	return russellRawMessage{buf.Bytes()}, nil
 }
 
-type SliceTypeMap struct {
-	Contains Encoder
+type SliceMap struct {
+	Contains TypeMap
 }
 
-func (tm SliceTypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
+func (sm SliceMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.([]interface{})
 	if !ok {
 		return NewValidationError("expected a list")
@@ -188,7 +188,7 @@ func (tm SliceTypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) er
 		// Elem() before putting it to use
 		dstElem := reflect.New(elementType).Elem()
 
-		err := tm.Contains.Unmarshal(val, dstElem)
+		err := sm.Contains.Unmarshal(val, dstElem)
 
 		if err != nil {
 			if ve, ok := err.(*ValidationError); ok {
@@ -208,7 +208,7 @@ func (tm SliceTypeMap) Unmarshal(partial interface{}, dstValue reflect.Value) er
 	return nil
 }
 
-func (tm SliceTypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
+func (sm SliceMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	if src.Kind() == reflect.Ptr {
 		src = src.Elem()
 	}
@@ -216,7 +216,7 @@ func (tm SliceTypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	result := make([]interface{}, src.Len())
 
 	for i := 0; i < src.Len(); i++ {
-		data, err := tm.Contains.Marshal(src.Index(i))
+		data, err := sm.Contains.Marshal(src.Index(i))
 		if err != nil {
 			return nil, err
 		}
@@ -232,19 +232,19 @@ func (tm SliceTypeMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	return russellRawMessage{data}, nil
 }
 
-func SliceOf(elem Encoder) Encoder {
-	return SliceTypeMap{
+func SliceOf(elem TypeMap) TypeMap {
+	return SliceMap{
 		Contains: elem,
 	}
 }
 
 type TypeMapper struct {
-	typeMaps map[reflect.Type]Encoder
+	typeMaps map[reflect.Type]TypeMap
 }
 
-func NewTypeMapper(maps ...TypeMap) *TypeMapper {
+func NewTypeMapper(maps ...StructMap) *TypeMapper {
 	t := &TypeMapper{
-		typeMaps: make(map[reflect.Type]Encoder),
+		typeMaps: make(map[reflect.Type]TypeMap),
 	}
 	for _, m := range maps {
 		t.typeMaps[reflect.TypeOf(m.UnderlyingType)] = m
@@ -252,7 +252,7 @@ func NewTypeMapper(maps ...TypeMap) *TypeMapper {
 	return t
 }
 
-func (tm *TypeMapper) getTypeMap(obj interface{}) Encoder {
+func (tm *TypeMapper) getTypeMap(obj interface{}) TypeMap {
 	t := reflect.TypeOf(obj)
 	isSlice := false
 
