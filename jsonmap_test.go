@@ -47,6 +47,8 @@ type OuterVariableThing struct {
 	InnerValue interface{}
 }
 
+type OtherOuterVariableThing OuterVariableThing
+
 type ReadOnlyThing struct {
 	PrimaryKey string
 }
@@ -186,6 +188,25 @@ var OuterVariableThingTypeMap = StructMap{
 	},
 }
 
+var BrokenOuterVariableThingTypeMap = StructMap{
+	OtherOuterVariableThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerType",
+			JSONFieldName:   "inner_type",
+			Validator:       String(1, 255),
+		},
+		{
+			StructFieldName: "InnerValue",
+			JSONFieldName:   "inner_thing",
+			Contains: VariableType("InnerTypeo", map[string]TypeMap{
+				"foo": InnerThingTypeMap,
+				"bar": OtherInnerThingTypeMap,
+			}),
+		},
+	},
+}
+
 var ReadOnlyThingTypeMap = StructMap{
 	ReadOnlyThing{},
 	[]MappedField{
@@ -248,6 +269,7 @@ var TestTypeMapper = NewTypeMapper(
 	OuterPointerSliceThingTypeMap,
 	OuterPointerToSliceThingTypeMap,
 	OuterVariableThingTypeMap,
+	BrokenOuterVariableThingTypeMap,
 	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
 	BrokenThingTypeMap,
@@ -661,6 +683,27 @@ func TestMarshalVariableTypeThing(t *testing.T) {
 			t.Fatal("Unexpected Marshal output:", string(data))
 		}
 	}
+}
+
+func TestMarshalBrokenVariableTypeThing(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("No panic")
+		}
+		if r != "No such underlying field: InnerTypeo" {
+			t.Fatal("Incorrect panic message", r)
+		}
+	}()
+
+	v := &OtherOuterVariableThing{
+		InnerType: "foo",
+		InnerValue: &InnerThing{
+			Foo: "test",
+		},
+	}
+
+	TestTypeMapper.Marshal(v)
 }
 
 func TestMarshalNoSuchStructField(t *testing.T) {
