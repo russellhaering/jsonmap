@@ -466,6 +466,23 @@ func TestUnmarshalVariableTypeThing(t *testing.T) {
 			t.Fatal("Unexpected value of InnerThing.Foo:", it.Foo)
 		}
 	}
+	{
+		v := &OuterVariableThing{}
+		err := TestTypeMapper.Unmarshal([]byte(`{"inner_type":"bar","inner_thing":{"bar":"foo"}}`), v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.InnerType != "bar" {
+			t.Fatal("Unexpected value of InnerType:", v.InnerType)
+		}
+		it, ok := v.InnerValue.(*OtherInnerThing)
+		if !ok {
+			t.Fatal("InnerValue has the wrong type:", reflect.TypeOf(v.InnerValue).String())
+		}
+		if it.Bar != "foo" {
+			t.Fatal("Unexpected value of InnerThing.Foo:", it.Bar)
+		}
+	}
 }
 
 func TestUnmarshalList(t *testing.T) {
