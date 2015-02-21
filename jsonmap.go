@@ -40,8 +40,8 @@ type Validator interface {
 }
 
 type TypeMap interface {
-	Unmarshal(partial interface{}, dstValue reflect.Value) error
-	Marshal(reflect.Value) (json.Marshaler, error)
+	Unmarshal(parent *reflect.Value, partial interface{}, dstValue reflect.Value) error
+	Marshal(parent *reflect.Value, field reflect.Value) (json.Marshaler, error)
 }
 
 type MappedField struct {
@@ -66,7 +66,7 @@ func (rm russellRawMessage) MarshalJSON() ([]byte, error) {
 	return rm.Data, nil
 }
 
-func (sm StructMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
+func (sm StructMap) Unmarshal(parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.(map[string]interface{})
 	if !ok {
 		return NewValidationError("expected an object")
@@ -94,7 +94,7 @@ func (sm StructMap) Unmarshal(partial interface{}, dstValue reflect.Value) error
 		var err error
 
 		if field.Contains != nil {
-			err = field.Contains.Unmarshal(val, dstField)
+			err = field.Contains.Unmarshal(&dstValue, val, dstField)
 		} else {
 			val, err = field.Validator.Validate(val)
 			if err == nil {
@@ -113,11 +113,11 @@ func (sm StructMap) Unmarshal(partial interface{}, dstValue reflect.Value) error
 	return nil
 }
 
-func (sm StructMap) marshalField(field MappedField, srcField reflect.Value) ([]byte, error) {
+func (sm StructMap) marshalField(parent reflect.Value, field MappedField, srcField reflect.Value) ([]byte, error) {
 	var val interface{}
 	if field.Contains != nil {
 		var err error
-		val, err = field.Contains.Marshal(srcField)
+		val, err = field.Contains.Marshal(&parent, srcField)
 		if err != nil {
 			return nil, err
 		}
@@ -128,7 +128,7 @@ func (sm StructMap) marshalField(field MappedField, srcField reflect.Value) ([]b
 	return json.Marshal(val)
 }
 
-func (sm StructMap) Marshal(src reflect.Value) (json.Marshaler, error) {
+func (sm StructMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	if src.Kind() == reflect.Ptr {
 		src = src.Elem()
 	}
@@ -147,7 +147,7 @@ func (sm StructMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 			return nil, err
 		}
 
-		valbuf, err := sm.marshalField(field, srcField)
+		valbuf, err := sm.marshalField(src, field, srcField)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +170,7 @@ type SliceMap struct {
 	Contains TypeMap
 }
 
-func (sm SliceMap) Unmarshal(partial interface{}, dstValue reflect.Value) error {
+func (sm SliceMap) Unmarshal(parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.([]interface{})
 	if !ok {
 		return NewValidationError("expected a list")
@@ -188,7 +188,7 @@ func (sm SliceMap) Unmarshal(partial interface{}, dstValue reflect.Value) error 
 		// Elem() before putting it to use
 		dstElem := reflect.New(elementType).Elem()
 
-		err := sm.Contains.Unmarshal(val, dstElem)
+		err := sm.Contains.Unmarshal(&dstValue, val, dstElem)
 
 		if err != nil {
 			if ve, ok := err.(*ValidationError); ok {
@@ -208,7 +208,7 @@ func (sm SliceMap) Unmarshal(partial interface{}, dstValue reflect.Value) error 
 	return nil
 }
 
-func (sm SliceMap) Marshal(src reflect.Value) (json.Marshaler, error) {
+func (sm SliceMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	if src.Kind() == reflect.Ptr {
 		src = src.Elem()
 	}
@@ -216,7 +216,7 @@ func (sm SliceMap) Marshal(src reflect.Value) (json.Marshaler, error) {
 	result := make([]interface{}, src.Len())
 
 	for i := 0; i < src.Len(); i++ {
-		data, err := sm.Contains.Marshal(src.Index(i))
+		data, err := sm.Contains.Marshal(&src, src.Index(i))
 		if err != nil {
 			return nil, err
 		}
@@ -293,12 +293,12 @@ func (tm *TypeMapper) Unmarshal(data []byte, dest interface{}) error {
 		return err
 	}
 
-	return m.Unmarshal(partial, reflect.ValueOf(dest).Elem())
+	return m.Unmarshal(nil, partial, reflect.ValueOf(dest).Elem())
 }
 
 func (tm *TypeMapper) Marshal(src interface{}) ([]byte, error) {
 	m := tm.getTypeMap(src)
-	data, err := m.Marshal(reflect.ValueOf(src))
+	data, err := m.Marshal(nil, reflect.ValueOf(src))
 	if err != nil {
 		return nil, err
 	}
