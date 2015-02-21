@@ -72,6 +72,14 @@ func (sm StructMap) Unmarshal(parent *reflect.Value, partial interface{}, dstVal
 		return NewValidationError("expected an object")
 	}
 
+	// In order to unmarshal into an interface{} we need to allocate an actual
+	// instance of this type of struct, and set the interface{} to point to the
+	// value.
+	if dstValue.Kind() == reflect.Interface {
+		dstValue.Set(reflect.New(reflect.TypeOf(sm.UnderlyingType)))
+		dstValue = dstValue.Elem().Elem()
+	}
+
 	for _, field := range sm.Fields {
 		if field.ReadOnly {
 			continue
@@ -129,8 +137,17 @@ func (sm StructMap) marshalField(parent reflect.Value, field MappedField, srcFie
 }
 
 func (sm StructMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+	// An Interface's Elem() returns a Ptr whose Elem() returns the actual value
+	if src.Kind() == reflect.Interface {
+		src = src.Elem()
+	}
 	if src.Kind() == reflect.Ptr {
 		src = src.Elem()
+	}
+
+	expectedType := reflect.TypeOf(sm.UnderlyingType)
+	if src.Type() != expectedType {
+		panic("wrong type: " + src.Type().String() + ", expected: " + expectedType.String())
 	}
 
 	buf := bytes.Buffer{}
@@ -235,6 +252,53 @@ func (sm SliceMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Marsh
 func SliceOf(elem TypeMap) TypeMap {
 	return SliceMap{
 		Contains: elem,
+	}
+}
+
+// This is a horrible hack of the go type system
+type variableType struct {
+	switchOnFieldName string
+	types             map[string]TypeMap
+}
+
+func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
+	typeKeyField := parent.FieldByName(vt.switchOnFieldName)
+	if !typeKeyField.IsValid() {
+		panic("No such underlying field: " + vt.switchOnFieldName)
+	}
+
+	typeKey := typeKeyField.String()
+	typeMap, ok := vt.types[typeKey]
+
+	if !ok {
+		return nil, NewValidationError("unexpected value of '%s': %s", vt.switchOnFieldName, typeKey)
+	}
+
+	return typeMap, nil
+}
+
+func (vt *variableType) Unmarshal(parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+	tm, err := vt.pickTypeMap(parent)
+	if err != nil {
+		return err
+	}
+
+	return tm.Unmarshal(parent, partial, dstValue)
+}
+
+func (vt *variableType) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+	tm, err := vt.pickTypeMap(parent)
+	if err != nil {
+		return nil, err
+	}
+
+	return tm.Marshal(parent, src)
+}
+
+func VariableType(switchOnFieldName string, types map[string]TypeMap) TypeMap {
+	return &variableType{
+		switchOnFieldName: switchOnFieldName,
+		types:             types,
 	}
 }
 

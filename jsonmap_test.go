@@ -38,6 +38,15 @@ type OuterPointerToSliceThing struct {
 	InnerThings *[]InnerThing
 }
 
+type OtherInnerThing struct {
+	Bar string
+}
+
+type OuterVariableThing struct {
+	InnerType  string
+	InnerValue interface{}
+}
+
 type ReadOnlyThing struct {
 	PrimaryKey string
 }
@@ -146,6 +155,37 @@ var OuterPointerToSliceThingTypeMap = StructMap{
 	},
 }
 
+var OtherInnerThingTypeMap = StructMap{
+	OtherInnerThing{},
+	[]MappedField{
+		{
+			StructFieldName: "Bar",
+			JSONFieldName:   "bar",
+			Validator:       String(1, 155),
+			Optional:        true,
+		},
+	},
+}
+
+var OuterVariableThingTypeMap = StructMap{
+	OuterVariableThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerType",
+			JSONFieldName:   "inner_type",
+			Validator:       String(1, 255),
+		},
+		{
+			StructFieldName: "InnerValue",
+			JSONFieldName:   "inner_thing",
+			Contains: VariableType("InnerType", map[string]TypeMap{
+				"foo": InnerThingTypeMap,
+				"bar": OtherInnerThingTypeMap,
+			}),
+		},
+	},
+}
+
 var ReadOnlyThingTypeMap = StructMap{
 	ReadOnlyThing{},
 	[]MappedField{
@@ -207,6 +247,7 @@ var TestTypeMapper = NewTypeMapper(
 	OuterSliceThingTypeMap,
 	OuterPointerSliceThingTypeMap,
 	OuterPointerToSliceThingTypeMap,
+	OuterVariableThingTypeMap,
 	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
 	BrokenThingTypeMap,
@@ -407,9 +448,29 @@ func TestValidateWithUnexpectedError(t *testing.T) {
 	}
 }
 
+func TestUnmarshalVariableTypeThing(t *testing.T) {
+	{
+		v := &OuterVariableThing{}
+		err := TestTypeMapper.Unmarshal([]byte(`{"inner_type":"foo","inner_thing":{"foo":"bar"}}`), v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v.InnerType != "foo" {
+			t.Fatal("Unexpected value of InnerType:", v.InnerType)
+		}
+		it, ok := v.InnerValue.(*InnerThing)
+		if !ok {
+			t.Fatal("InnerValue has the wrong type:", reflect.TypeOf(v.InnerValue).String())
+		}
+		if it.Foo != "bar" {
+			t.Fatal("Unexpected value of InnerThing.Foo:", it.Foo)
+		}
+	}
+}
+
 func TestUnmarshalList(t *testing.T) {
 	v := &InnerThing{}
-	err := InnerThingTypeMap.Unmarshal([]interface{}{}, reflect.ValueOf(v))
+	err := InnerThingTypeMap.Unmarshal(nil, []interface{}{}, reflect.ValueOf(v))
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -547,6 +608,41 @@ func TestMarshalOuterPointerToSliceThing(t *testing.T) {
 	}
 	if string(data) != `{"inner_things":[{"foo":"bar","an_int":3,"a_bool":false}]}` {
 		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
+func TestMarshalVariableTypeThing(t *testing.T) {
+	{
+		v := &OuterVariableThing{
+			InnerType: "foo",
+			InnerValue: &InnerThing{
+				Foo: "test",
+			},
+		}
+
+		data, err := TestTypeMapper.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != `{"inner_type":"foo","inner_thing":{"foo":"test","an_int":0,"a_bool":false}}` {
+			t.Fatal("Unexpected Marshal output:", string(data))
+		}
+	}
+	{
+		v := &OuterVariableThing{
+			InnerType: "bar",
+			InnerValue: &OtherInnerThing{
+				Bar: "test",
+			},
+		}
+
+		data, err := TestTypeMapper.Marshal(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != `{"inner_type":"bar","inner_thing":{"bar":"test"}}` {
+			t.Fatal("Unexpected Marshal output:", string(data))
+		}
 	}
 }
 
