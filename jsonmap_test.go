@@ -691,7 +691,7 @@ func TestMarshalBrokenVariableTypeThing(t *testing.T) {
 		if r == nil {
 			t.Fatal("No panic")
 		}
-		if r != "No such underlying field: InnerTypeo" {
+		if r != "no such underlying field: InnerTypeo" {
 			t.Fatal("Incorrect panic message", r)
 		}
 	}()
@@ -733,7 +733,7 @@ func TestMarshalNoSuchStructField(t *testing.T) {
 		if r == nil {
 			t.Fatal("No panic")
 		}
-		if r != "No such underlying field: Incorrect" {
+		if r != "no such underlying field: Incorrect" {
 			t.Fatal("Incorrect panic message", r)
 		}
 	}()
@@ -749,7 +749,7 @@ func TestUnmarshalNoSuchStructField(t *testing.T) {
 		if r == nil {
 			t.Fatal("No panic")
 		}
-		if r != "No such underlying field: Incorrect" {
+		if r != "no such underlying field: Incorrect" {
 			t.Fatal("Incorrect panic message", r)
 		}
 	}()

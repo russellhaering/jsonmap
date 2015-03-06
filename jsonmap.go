@@ -87,7 +87,7 @@ func (sm StructMap) Unmarshal(parent *reflect.Value, partial interface{}, dstVal
 
 		dstField := dstValue.FieldByName(field.StructFieldName)
 		if !dstField.IsValid() {
-			panic("No such underlying field: " + field.StructFieldName)
+			panic("no such underlying field: " + field.StructFieldName)
 		}
 
 		val, ok := data[field.JSONFieldName]
@@ -156,7 +156,7 @@ func (sm StructMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Mars
 	for i, field := range sm.Fields {
 		srcField := src.FieldByName(field.StructFieldName)
 		if !srcField.IsValid() {
-			panic("No such underlying field: " + field.StructFieldName)
+			panic("no such underlying field: " + field.StructFieldName)
 		}
 
 		keybuf, err := json.Marshal(field.JSONFieldName)
@@ -264,7 +264,7 @@ type variableType struct {
 func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 	typeKeyField := parent.FieldByName(vt.switchOnFieldName)
 	if !typeKeyField.IsValid() {
-		panic("No such underlying field: " + vt.switchOnFieldName)
+		panic("no such underlying field: " + vt.switchOnFieldName)
 	}
 
 	typeKey := typeKeyField.String()
