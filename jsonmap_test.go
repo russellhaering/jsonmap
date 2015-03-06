@@ -706,6 +706,27 @@ func TestMarshalBrokenVariableTypeThing(t *testing.T) {
 	TestTypeMapper.Marshal(v)
 }
 
+func TestMarshalVariableTypeThingInvalidTypeIdentifier(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("No panic")
+		}
+		if r != "variable type serialization error: validation error: invalid type identifier: 'wrong'" {
+			t.Fatal("Incorrect panic message", r)
+		}
+	}()
+
+	v := &OuterVariableThing{
+		InnerType: "wrong",
+		InnerValue: &InnerThing{
+			Foo: "test",
+		},
+	}
+
+	TestTypeMapper.Marshal(v)
+}
+
 func TestMarshalNoSuchStructField(t *testing.T) {
 	defer func() {
 		r := recover()

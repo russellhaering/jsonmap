@@ -271,7 +271,9 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 	typeMap, ok := vt.types[typeKey]
 
 	if !ok {
-		return nil, NewValidationError("unexpected value of '%s': %s", vt.switchOnFieldName, typeKey)
+		// NOTE: This error message isn't great because we don't have a way to know
+		// the JSON field name uponw which we're switching.
+		return nil, NewValidationError("invalid type identifier: '%s'", typeKey)
 	}
 
 	return typeMap, nil
@@ -289,7 +291,7 @@ func (vt *variableType) Unmarshal(parent *reflect.Value, partial interface{}, ds
 func (vt *variableType) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	tm, err := vt.pickTypeMap(parent)
 	if err != nil {
-		return nil, err
+		panic("variable type serialization error: " + err.Error())
 	}
 
 	return tm.Marshal(parent, src)
