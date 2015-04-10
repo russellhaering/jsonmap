@@ -45,12 +45,13 @@ type TypeMap interface {
 }
 
 type MappedField struct {
-	StructFieldName string
-	JSONFieldName   string
-	Contains        TypeMap
-	Validator       Validator
-	Optional        bool
-	ReadOnly        bool
+	StructFieldName  string
+	StructGetterName string
+	JSONFieldName    string
+	Contains         TypeMap
+	Validator        Validator
+	Optional         bool
+	ReadOnly         bool
 }
 
 type StructMap struct {
@@ -85,6 +86,7 @@ func (sm StructMap) Unmarshal(parent *reflect.Value, partial interface{}, dstVal
 			continue
 		}
 
+		// TODO: Setters
 		dstField := dstValue.FieldByName(field.StructFieldName)
 		if !dstField.IsValid() {
 			panic("no such underlying field: " + field.StructFieldName)
@@ -154,9 +156,29 @@ func (sm StructMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Mars
 	buf.WriteByte('{')
 
 	for i, field := range sm.Fields {
-		srcField := src.FieldByName(field.StructFieldName)
-		if !srcField.IsValid() {
-			panic("no such underlying field: " + field.StructFieldName)
+		var srcField reflect.Value
+
+		// TODO: Do validation ahead of time
+		if field.StructFieldName != "" {
+			srcField = src.FieldByName(field.StructFieldName)
+			if !srcField.IsValid() {
+				panic("no such underlying field: " + field.StructFieldName)
+			}
+		} else if field.StructGetterName != "" {
+			srcGetter := src.MethodByName(field.StructGetterName)
+			if !srcGetter.IsValid() {
+				panic("no such underlying getter method: " + field.StructGetterName)
+			}
+			rets := srcGetter.Call([]reflect.Value{})
+			if len(rets) != 2 {
+				panic("invalid getter, should return (interface{}, error): " + field.StructGetterName)
+			}
+			if !rets[1].IsNil() {
+				return nil, rets[1].Interface().(error)
+			}
+			srcField = rets[0]
+		} else {
+			panic("either StructFieldName or StructGetterName must be specified")
 		}
 
 		keybuf, err := json.Marshal(field.JSONFieldName)
