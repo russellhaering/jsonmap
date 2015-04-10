@@ -279,7 +279,7 @@ var TestTypeMapper = NewTypeMapper(
 
 func TestValidateInnerThing(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"foo": "fooz", "an_int": 10, "a_bool": true}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"foo": "fooz", "an_int": 10, "a_bool": true}`), v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +290,7 @@ func TestValidateInnerThing(t *testing.T) {
 
 func TestValidateOuterThing(t *testing.T) {
 	v := &OuterThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"inner_thing": {"foo": "fooz"}}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_thing": {"foo": "fooz"}}`), v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ func TestValidateOuterThing(t *testing.T) {
 
 func TestValidateOuterSliceThing(t *testing.T) {
 	v := &OuterSliceThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"inner_things": [{"foo": "fooz"}]}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}]}`), v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestValidateOuterSliceThing(t *testing.T) {
 
 func TestValidateOuterSliceThingInvalidElement(t *testing.T) {
 	v := &OuterSliceThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"inner_things": [{"foo": "fooziswaytoolooong"}]}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooziswaytoolooong"}]}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -326,7 +326,7 @@ func TestValidateOuterSliceThingInvalidElement(t *testing.T) {
 
 func TestValidateOuterSliceThingNotAList(t *testing.T) {
 	v := &OuterSliceThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"inner_things": "foo"}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": "foo"}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -337,7 +337,7 @@ func TestValidateOuterSliceThingNotAList(t *testing.T) {
 
 func TestValidateReadOnlyThing(t *testing.T) {
 	v := &ReadOnlyThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"primary_key": "foo"}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"primary_key": "foo"}`), v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -348,7 +348,7 @@ func TestValidateReadOnlyThing(t *testing.T) {
 
 func TestValidateReadOnlyThingValueNotProvided(t *testing.T) {
 	v := &ReadOnlyThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{}`), v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,13 +364,13 @@ func TestValidateUnregisteredThing(t *testing.T) {
 		}
 	}()
 	v := &UnregisteredThing{}
-	TestTypeMapper.Unmarshal([]byte(`{}`), v)
+	TestTypeMapper.Unmarshal(EmptyContext, []byte(`{}`), v)
 	t.Fatal("Unexpected success")
 }
 
 func TestValidateStringTypeMismatch(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"foo": 12.0}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"foo": 12.0}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -381,7 +381,7 @@ func TestValidateStringTypeMismatch(t *testing.T) {
 
 func TestValidateStringTooShort(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"foo": ""}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"foo": ""}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -392,7 +392,7 @@ func TestValidateStringTooShort(t *testing.T) {
 
 func TestValidateStringTooLong(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"foo": "thisvalueistoolong"}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"foo": "thisvalueistoolong"}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -403,7 +403,7 @@ func TestValidateStringTooLong(t *testing.T) {
 
 func TestValidateBooleanTypeMismatch(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"a_bool": 12.0}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"a_bool": 12.0}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -414,7 +414,7 @@ func TestValidateBooleanTypeMismatch(t *testing.T) {
 
 func TestValidateIntegerTypeMismatch(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"an_int": false}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": false}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -425,7 +425,7 @@ func TestValidateIntegerTypeMismatch(t *testing.T) {
 
 func TestValidateIntegerNumericTypeMismatch(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"an_int": 12.1}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": 12.1}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -436,7 +436,7 @@ func TestValidateIntegerNumericTypeMismatch(t *testing.T) {
 
 func TestValidateIntegerTooSmall(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"an_int": -1}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": -1}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -447,7 +447,7 @@ func TestValidateIntegerTooSmall(t *testing.T) {
 
 func TestValidateIntegerTooLarge(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"an_int": 2048}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": 2048}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -458,7 +458,7 @@ func TestValidateIntegerTooLarge(t *testing.T) {
 
 func TestValidateWithUnexpectedError(t *testing.T) {
 	v := &BrokenThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"invalid": "definitely"}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"invalid": "definitely"}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -473,7 +473,7 @@ func TestValidateWithUnexpectedError(t *testing.T) {
 func TestUnmarshalVariableTypeThing(t *testing.T) {
 	{
 		v := &OuterVariableThing{}
-		err := TestTypeMapper.Unmarshal([]byte(`{"inner_type":"foo","inner_thing":{"foo":"bar"}}`), v)
+		err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"foo","inner_thing":{"foo":"bar"}}`), v)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -490,7 +490,7 @@ func TestUnmarshalVariableTypeThing(t *testing.T) {
 	}
 	{
 		v := &OuterVariableThing{}
-		err := TestTypeMapper.Unmarshal([]byte(`{"inner_type":"bar","inner_thing":{"bar":"foo"}}`), v)
+		err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"bar","inner_thing":{"bar":"foo"}}`), v)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -509,7 +509,7 @@ func TestUnmarshalVariableTypeThing(t *testing.T) {
 
 func TestUnmarshalList(t *testing.T) {
 	v := &InnerThing{}
-	err := InnerThingTypeMap.Unmarshal(nil, []interface{}{}, reflect.ValueOf(v))
+	err := InnerThingTypeMap.Unmarshal(EmptyContext, nil, []interface{}{}, reflect.ValueOf(v))
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -520,7 +520,7 @@ func TestUnmarshalList(t *testing.T) {
 
 func TestUnmarshalMissingRequiredField(t *testing.T) {
 	v := &OuterThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{}`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{}`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -540,7 +540,7 @@ func TestUnmarshalNonPointer(t *testing.T) {
 		}
 	}()
 	v := InnerThing{}
-	TestTypeMapper.Unmarshal([]byte(`{}`), v)
+	TestTypeMapper.Unmarshal(EmptyContext, []byte(`{}`), v)
 }
 
 func TestMarshalInnerThing(t *testing.T) {
@@ -549,7 +549,7 @@ func TestMarshalInnerThing(t *testing.T) {
 		AnInt: 7,
 		ABool: true,
 	}
-	data, err := TestTypeMapper.Marshal(v)
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -566,7 +566,7 @@ func TestMarshalOuterThing(t *testing.T) {
 			ABool: false,
 		},
 	}
-	data, err := TestTypeMapper.Marshal(v)
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -583,7 +583,7 @@ func TestMarshalOuterPointerThing(t *testing.T) {
 			ABool: false,
 		},
 	}
-	data, err := TestTypeMapper.Marshal(v)
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -602,7 +602,7 @@ func TestMarshalOuterSliceThing(t *testing.T) {
 			},
 		},
 	}
-	data, err := TestTypeMapper.Marshal(v)
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -622,7 +622,7 @@ func TestMarshalOuterPointerSliceThing(t *testing.T) {
 			},
 		},
 	}
-	data, err := TestTypeMapper.Marshal(v)
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -641,7 +641,7 @@ func TestMarshalOuterPointerToSliceThing(t *testing.T) {
 			},
 		},
 	}
-	data, err := TestTypeMapper.Marshal(v)
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -659,7 +659,7 @@ func TestMarshalVariableTypeThing(t *testing.T) {
 			},
 		}
 
-		data, err := TestTypeMapper.Marshal(v)
+		data, err := TestTypeMapper.Marshal(EmptyContext, v)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -675,7 +675,7 @@ func TestMarshalVariableTypeThing(t *testing.T) {
 			},
 		}
 
-		data, err := TestTypeMapper.Marshal(v)
+		data, err := TestTypeMapper.Marshal(EmptyContext, v)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -703,7 +703,7 @@ func TestMarshalBrokenVariableTypeThing(t *testing.T) {
 		},
 	}
 
-	TestTypeMapper.Marshal(v)
+	TestTypeMapper.Marshal(EmptyContext, v)
 }
 
 func TestMarshalVariableTypeThingInvalidTypeIdentifier(t *testing.T) {
@@ -724,7 +724,7 @@ func TestMarshalVariableTypeThingInvalidTypeIdentifier(t *testing.T) {
 		},
 	}
 
-	TestTypeMapper.Marshal(v)
+	TestTypeMapper.Marshal(EmptyContext, v)
 }
 
 func TestMarshalNoSuchStructField(t *testing.T) {
@@ -740,7 +740,7 @@ func TestMarshalNoSuchStructField(t *testing.T) {
 	v := &TypoedThing{
 		Correct: false,
 	}
-	TestTypeMapper.Marshal(v)
+	TestTypeMapper.Marshal(EmptyContext, v)
 }
 
 func TestUnmarshalNoSuchStructField(t *testing.T) {
@@ -754,12 +754,12 @@ func TestUnmarshalNoSuchStructField(t *testing.T) {
 		}
 	}()
 	v := &TypoedThing{}
-	TestTypeMapper.Unmarshal([]byte(`{"correct": false}`), v)
+	TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"correct": false}`), v)
 }
 
 func TestUnmarshalInvalidJSON(t *testing.T) {
 	v := &InnerThing{}
-	err := TestTypeMapper.Unmarshal([]byte(`{"this is": "definitely invalid JSON]`), v)
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"this is": "definitely invalid JSON]`), v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -770,7 +770,7 @@ func TestUnmarshalInvalidJSON(t *testing.T) {
 
 func TestMarshalNonMarshalableThing(t *testing.T) {
 	v := &OuterNonMarshalableThing{}
-	_, err := TestTypeMapper.Marshal(v)
+	_, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -783,7 +783,7 @@ func TestMarshalSliceOfNonMarshalableThing(t *testing.T) {
 	v := []OuterNonMarshalableThing{
 		{},
 	}
-	_, err := TestTypeMapper.Marshal(v)
+	_, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
@@ -807,7 +807,7 @@ func TestMarshalIndent(t *testing.T) {
 		"        \"a_bool\": false\n" +
 		"    }\n" +
 		"}"
-	data, err := TestTypeMapper.MarshalIndent(v, "", "    ")
+	data, err := TestTypeMapper.MarshalIndent(EmptyContext, v, "", "    ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -830,7 +830,7 @@ func TestMarshalSlice(t *testing.T) {
 		},
 	}
 	expected := `[{"foo":"bar","an_int":3,"a_bool":false},{"foo":"bam","an_int":4,"a_bool":true}]`
-	data, err := TestTypeMapper.Marshal(v)
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -853,7 +853,7 @@ func TestMarshalSliceOfPointers(t *testing.T) {
 		},
 	}
 	expected := `[{"foo":"bar","an_int":3,"a_bool":false},{"foo":"bam","an_int":4,"a_bool":true}]`
-	data, err := TestTypeMapper.Marshal(v)
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,10 @@ import (
 	"reflect"
 )
 
+type Context interface{}
+
+var EmptyContext Context
+
 type ValidationError struct {
 	reason string
 	rpath  []string
@@ -40,8 +44,8 @@ type Validator interface {
 }
 
 type TypeMap interface {
-	Unmarshal(parent *reflect.Value, partial interface{}, dstValue reflect.Value) error
-	Marshal(parent *reflect.Value, field reflect.Value) (json.Marshaler, error)
+	Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error
+	Marshal(ctx Context, parent *reflect.Value, field reflect.Value) (json.Marshaler, error)
 }
 
 type MappedField struct {
@@ -67,7 +71,7 @@ func (rm russellRawMessage) MarshalJSON() ([]byte, error) {
 	return rm.Data, nil
 }
 
-func (sm StructMap) Unmarshal(parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.(map[string]interface{})
 	if !ok {
 		return NewValidationError("expected an object")
@@ -104,7 +108,7 @@ func (sm StructMap) Unmarshal(parent *reflect.Value, partial interface{}, dstVal
 		var err error
 
 		if field.Contains != nil {
-			err = field.Contains.Unmarshal(&dstValue, val, dstField)
+			err = field.Contains.Unmarshal(ctx, &dstValue, val, dstField)
 		} else {
 			val, err = field.Validator.Validate(val)
 			if err == nil {
@@ -123,11 +127,11 @@ func (sm StructMap) Unmarshal(parent *reflect.Value, partial interface{}, dstVal
 	return nil
 }
 
-func (sm StructMap) marshalField(parent reflect.Value, field MappedField, srcField reflect.Value) ([]byte, error) {
+func (sm StructMap) marshalField(ctx Context, parent reflect.Value, field MappedField, srcField reflect.Value) ([]byte, error) {
 	var val interface{}
 	if field.Contains != nil {
 		var err error
-		val, err = field.Contains.Marshal(&parent, srcField)
+		val, err = field.Contains.Marshal(ctx, &parent, srcField)
 		if err != nil {
 			return nil, err
 		}
@@ -138,7 +142,7 @@ func (sm StructMap) marshalField(parent reflect.Value, field MappedField, srcFie
 	return json.Marshal(val)
 }
 
-func (sm StructMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+func (sm StructMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	buf := bytes.Buffer{}
 	isNil := false
 
@@ -195,7 +199,7 @@ func (sm StructMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Mars
 				return nil, err
 			}
 
-			valbuf, err := sm.marshalField(src, field, srcField)
+			valbuf, err := sm.marshalField(ctx, src, field, srcField)
 			if err != nil {
 				return nil, err
 			}
@@ -219,7 +223,7 @@ type SliceMap struct {
 	Contains TypeMap
 }
 
-func (sm SliceMap) Unmarshal(parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.([]interface{})
 	if !ok {
 		return NewValidationError("expected a list")
@@ -237,7 +241,7 @@ func (sm SliceMap) Unmarshal(parent *reflect.Value, partial interface{}, dstValu
 		// Elem() before putting it to use
 		dstElem := reflect.New(elementType).Elem()
 
-		err := sm.Contains.Unmarshal(&dstValue, val, dstElem)
+		err := sm.Contains.Unmarshal(ctx, &dstValue, val, dstElem)
 
 		if err != nil {
 			if ve, ok := err.(*ValidationError); ok {
@@ -257,7 +261,7 @@ func (sm SliceMap) Unmarshal(parent *reflect.Value, partial interface{}, dstValu
 	return nil
 }
 
-func (sm SliceMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+func (sm SliceMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	if src.Kind() == reflect.Ptr {
 		src = src.Elem()
 	}
@@ -265,7 +269,7 @@ func (sm SliceMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Marsh
 	result := make([]interface{}, src.Len())
 
 	for i := 0; i < src.Len(); i++ {
-		data, err := sm.Contains.Marshal(&src, src.Index(i))
+		data, err := sm.Contains.Marshal(ctx, &src, src.Index(i))
 		if err != nil {
 			return nil, err
 		}
@@ -311,22 +315,22 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 	return typeMap, nil
 }
 
-func (vt *variableType) Unmarshal(parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+func (vt *variableType) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	tm, err := vt.pickTypeMap(parent)
 	if err != nil {
 		return err
 	}
 
-	return tm.Unmarshal(parent, partial, dstValue)
+	return tm.Unmarshal(ctx, parent, partial, dstValue)
 }
 
-func (vt *variableType) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+func (vt *variableType) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	tm, err := vt.pickTypeMap(parent)
 	if err != nil {
 		panic("variable type serialization error: " + err.Error())
 	}
 
-	return tm.Marshal(parent, src)
+	return tm.Marshal(ctx, parent, src)
 }
 
 func VariableType(switchOnFieldName string, types map[string]TypeMap) TypeMap {
@@ -376,7 +380,7 @@ func (tm *TypeMapper) getTypeMap(obj interface{}) TypeMap {
 	return m
 }
 
-func (tm *TypeMapper) Unmarshal(data []byte, dest interface{}) error {
+func (tm *TypeMapper) Unmarshal(ctx Context, data []byte, dest interface{}) error {
 	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
 		panic("cannot unmarshal to non-pointer")
 	}
@@ -391,21 +395,21 @@ func (tm *TypeMapper) Unmarshal(data []byte, dest interface{}) error {
 		return err
 	}
 
-	return m.Unmarshal(nil, partial, reflect.ValueOf(dest).Elem())
+	return m.Unmarshal(ctx, nil, partial, reflect.ValueOf(dest).Elem())
 }
 
-func (tm *TypeMapper) Marshal(src interface{}) ([]byte, error) {
+func (tm *TypeMapper) Marshal(ctx Context, src interface{}) ([]byte, error) {
 	m := tm.getTypeMap(src)
-	data, err := m.Marshal(nil, reflect.ValueOf(src))
+	data, err := m.Marshal(ctx, nil, reflect.ValueOf(src))
 	if err != nil {
 		return nil, err
 	}
 	return data.MarshalJSON()
 }
 
-func (tm *TypeMapper) MarshalIndent(src interface{}, prefix, indent string) ([]byte, error) {
+func (tm *TypeMapper) MarshalIndent(ctx Context, src interface{}, prefix, indent string) ([]byte, error) {
 	// This is nuts, but equivalent to how json.MarshalIndent() works
-	data, err := tm.Marshal(src)
+	data, err := tm.Marshal(ctx, src)
 	if err != nil {
 		return nil, err
 	}
