@@ -139,69 +139,78 @@ func (sm StructMap) marshalField(parent reflect.Value, field MappedField, srcFie
 }
 
 func (sm StructMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+	buf := bytes.Buffer{}
+	isNil := false
+
 	// An Interface's Elem() returns a Ptr whose Elem() returns the actual value
 	if src.Kind() == reflect.Interface {
+		isNil = src.IsNil()
 		src = src.Elem()
 	}
+
 	if src.Kind() == reflect.Ptr {
+		isNil = src.IsNil()
 		src = src.Elem()
 	}
 
-	expectedType := reflect.TypeOf(sm.UnderlyingType)
-	if src.Type() != expectedType {
-		panic("wrong type: " + src.Type().String() + ", expected: " + expectedType.String())
+	if isNil {
+		buf.Write([]byte("null"))
+	} else {
+		expectedType := reflect.TypeOf(sm.UnderlyingType)
+		if src.Type() != expectedType {
+			panic("wrong type: " + src.Type().String() + ", expected: " + expectedType.String())
+		}
+
+		buf.WriteByte('{')
+
+		for i, field := range sm.Fields {
+			var srcField reflect.Value
+
+			// TODO: Do validation ahead of time
+			if field.StructFieldName != "" {
+				srcField = src.FieldByName(field.StructFieldName)
+				if !srcField.IsValid() {
+					panic("no such underlying field: " + field.StructFieldName)
+				}
+			} else if field.StructGetterName != "" {
+				// TODO: I'm not 100% sure if this works with methods that don't take a pointer
+				srcGetter := src.Addr().MethodByName(field.StructGetterName)
+				if !srcGetter.IsValid() {
+					panic("no such underlying getter method: " + field.StructGetterName)
+				}
+				rets := srcGetter.Call([]reflect.Value{})
+				if len(rets) != 2 {
+					panic("invalid getter, should return (interface{}, error): " + field.StructGetterName)
+				}
+				if !rets[1].IsNil() {
+					return nil, rets[1].Interface().(error)
+				}
+				srcField = rets[0]
+			} else {
+				panic("either StructFieldName or StructGetterName must be specified")
+			}
+
+			keybuf, err := json.Marshal(field.JSONFieldName)
+			if err != nil {
+				return nil, err
+			}
+
+			valbuf, err := sm.marshalField(src, field, srcField)
+			if err != nil {
+				return nil, err
+			}
+
+			buf.Write(keybuf)
+			buf.WriteByte(':')
+			buf.Write(valbuf)
+
+			if i != len(sm.Fields)-1 {
+				buf.WriteByte(',')
+			}
+		}
+
+		buf.WriteByte('}')
 	}
-
-	buf := bytes.Buffer{}
-	buf.WriteByte('{')
-
-	for i, field := range sm.Fields {
-		var srcField reflect.Value
-
-		// TODO: Do validation ahead of time
-		if field.StructFieldName != "" {
-			srcField = src.FieldByName(field.StructFieldName)
-			if !srcField.IsValid() {
-				panic("no such underlying field: " + field.StructFieldName)
-			}
-		} else if field.StructGetterName != "" {
-			// TODO: I'm not 100% sure if this works with methods that don't take a pointer
-			srcGetter := src.Addr().MethodByName(field.StructGetterName)
-			if !srcGetter.IsValid() {
-				panic("no such underlying getter method: " + field.StructGetterName)
-			}
-			rets := srcGetter.Call([]reflect.Value{})
-			if len(rets) != 2 {
-				panic("invalid getter, should return (interface{}, error): " + field.StructGetterName)
-			}
-			if !rets[1].IsNil() {
-				return nil, rets[1].Interface().(error)
-			}
-			srcField = rets[0]
-		} else {
-			panic("either StructFieldName or StructGetterName must be specified")
-		}
-
-		keybuf, err := json.Marshal(field.JSONFieldName)
-		if err != nil {
-			return nil, err
-		}
-
-		valbuf, err := sm.marshalField(src, field, srcField)
-		if err != nil {
-			return nil, err
-		}
-
-		buf.Write(keybuf)
-		buf.WriteByte(':')
-		buf.Write(valbuf)
-
-		if i != len(sm.Fields)-1 {
-			buf.WriteByte(',')
-		}
-	}
-
-	buf.WriteByte('}')
 
 	return russellRawMessage{buf.Bytes()}, nil
 }
