@@ -165,7 +165,8 @@ func (sm StructMap) Marshal(parent *reflect.Value, src reflect.Value) (json.Mars
 				panic("no such underlying field: " + field.StructFieldName)
 			}
 		} else if field.StructGetterName != "" {
-			srcGetter := src.MethodByName(field.StructGetterName)
+			// TODO: I'm not 100% sure if this works with methods that don't take a pointer
+			srcGetter := src.Addr().MethodByName(field.StructGetterName)
 			if !srcGetter.IsValid() {
 				panic("no such underlying getter method: " + field.StructGetterName)
 			}
