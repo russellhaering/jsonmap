@@ -64,6 +64,10 @@ type BrokenThing struct {
 	Invalid string
 }
 
+type TemplatableThing struct {
+	SomeField string
+}
+
 type NonMarshalableType struct{}
 
 func (t NonMarshalableType) MarshalJSON() ([]byte, error) {
@@ -240,6 +244,17 @@ var BrokenThingTypeMap = StructMap{
 	},
 }
 
+var TemplatableThingTypeMap = StructMap{
+	TemplatableThing{},
+	[]MappedField{
+		{
+			StructFieldName: "SomeField",
+			JSONFieldName:   "some_field",
+			Contains:        StringRenderer("{{.Context.Foo}}:{{.Value}}"),
+		},
+	},
+}
+
 var InnerNonMarshalableThingTypeMap = StructMap{
 	InnerNonMarshalableThing{},
 	[]MappedField{
@@ -273,6 +288,7 @@ var TestTypeMapper = NewTypeMapper(
 	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
 	BrokenThingTypeMap,
+	TemplatableThingTypeMap,
 	InnerNonMarshalableThingTypeMap,
 	OuterNonMarshalableThingTypeMap,
 )
@@ -857,6 +873,28 @@ func TestMarshalSliceOfPointers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if string(data) != expected {
+		t.Fatal("Unexpected Marshal output:", string(data), expected)
+	}
+}
+
+func TestMarshalTemplatableThing(t *testing.T) {
+	ctx := struct {
+		Foo string
+	}{
+		Foo: "foo",
+	}
+
+	v := &TemplatableThing{
+		SomeField: "bar",
+	}
+
+	expected := `{"some_field":"foo:bar"}`
+	data, err := TestTypeMapper.Marshal(ctx, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if string(data) != expected {
 		t.Fatal("Unexpected Marshal output:", string(data), expected)
 	}

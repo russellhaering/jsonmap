@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"text/template"
 )
 
 type Context interface{}
@@ -337,6 +338,46 @@ func VariableType(switchOnFieldName string, types map[string]TypeMap) TypeMap {
 	return &variableType{
 		switchOnFieldName: switchOnFieldName,
 		types:             types,
+	}
+}
+
+type RenderInfo struct {
+	Context Context
+	Parent  interface{}
+	Value   interface{}
+}
+
+type stringRenderer struct {
+	template *template.Template
+}
+
+func (sr *stringRenderer) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+	return nil
+}
+
+func (sr *stringRenderer) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+	buf := bytes.Buffer{}
+	err := sr.template.Execute(&buf, RenderInfo{
+		Context: ctx,
+		Parent:  parent.Interface(),
+		Value:   src.Interface(),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	marshalled, err := json.Marshal(buf.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return russellRawMessage{marshalled}, nil
+}
+
+func StringRenderer(text string) *stringRenderer {
+	return &stringRenderer{
+		template: template.Must(template.New("").Parse(text)),
 	}
 }
 
