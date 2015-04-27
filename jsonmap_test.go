@@ -82,6 +82,10 @@ type OuterNonMarshalableThing struct {
 	InnerThing InnerNonMarshalableThing
 }
 
+type ThingWithSliceOfPrimitives struct {
+	Strings []string
+}
+
 var InnerThingTypeMap = StructMap{
 	InnerThing{},
 	[]MappedField{
@@ -276,6 +280,17 @@ var OuterNonMarshalableThingTypeMap = StructMap{
 	},
 }
 
+var ThingWithSliceOfPrimitivesTypeMap = StructMap{
+	ThingWithSliceOfPrimitives{},
+	[]MappedField{
+		{
+			StructFieldName: "Strings",
+			JSONFieldName:   "strings",
+			Contains:        SliceOf(PrimitiveMap(String(1, 16))),
+		},
+	},
+}
+
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
@@ -291,6 +306,7 @@ var TestTypeMapper = NewTypeMapper(
 	TemplatableThingTypeMap,
 	InnerNonMarshalableThingTypeMap,
 	OuterNonMarshalableThingTypeMap,
+	ThingWithSliceOfPrimitivesTypeMap,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -897,5 +913,37 @@ func TestMarshalTemplatableThing(t *testing.T) {
 
 	if string(data) != expected {
 		t.Fatal("Unexpected Marshal output:", string(data), expected)
+	}
+}
+
+func TestMarshalThingWithSliceOfPrimitives(t *testing.T) {
+	v := ThingWithSliceOfPrimitives{
+		Strings: []string{"foo", "bar"},
+	}
+
+	expected := `{"strings":["foo","bar"]}`
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != expected {
+		t.Fatal("Unexpected Marshal output:", string(data), expected)
+	}
+}
+
+func TestValidateThingWithSliceOfPrimitives(t *testing.T) {
+	original := `{"strings":["foo","bar"]}`
+	v := &ThingWithSliceOfPrimitives{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(original), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != original {
+		t.Fatal("Unoriginal Marshal output:", string(data), original)
 	}
 }

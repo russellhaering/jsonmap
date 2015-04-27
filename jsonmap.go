@@ -381,6 +381,36 @@ func StringRenderer(text string) *stringRenderer {
 	}
 }
 
+type primitiveMap struct {
+	validator Validator
+}
+
+func (m *primitiveMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+	val, err := m.validator.Validate(partial)
+	if err != nil {
+		return err
+	}
+
+	dstValue.Set(reflect.ValueOf(val))
+
+	return nil
+}
+
+func (m *primitiveMap) Marshal(ctx Context, parent *reflect.Value, field reflect.Value) (json.Marshaler, error) {
+	data, err := json.Marshal(field.Interface())
+	if err != nil {
+		return nil, err
+	}
+
+	return russellRawMessage{data}, nil
+}
+
+func PrimitiveMap(v Validator) TypeMap {
+	return &primitiveMap{
+		validator: v,
+	}
+}
+
 type TypeMapper struct {
 	typeMaps map[reflect.Type]TypeMap
 }
