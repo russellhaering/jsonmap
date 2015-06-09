@@ -77,3 +77,13 @@ func Integer(minVal, maxVal int) Validator {
 		maxVal: maxVal,
 	}
 }
+
+type interfaceValidator struct{}
+
+func (v *interfaceValidator) Validate(value interface{}) (interface{}, error) {
+	return value, nil
+}
+
+func Interface() *interfaceValidator {
+	return &interfaceValidator{}
+}
