@@ -1,6 +1,7 @@
 package jsonmap
 
 import (
+	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
@@ -84,6 +85,10 @@ type OuterNonMarshalableThing struct {
 
 type ThingWithSliceOfPrimitives struct {
 	Strings []string
+}
+
+type ThingWithMapOfInterfaces struct {
+	Interfaces map[string]interface{}
 }
 
 var InnerThingTypeMap = StructMap{
@@ -291,6 +296,17 @@ var ThingWithSliceOfPrimitivesTypeMap = StructMap{
 	},
 }
 
+var ThingWithMapOfInterfacesTypeMap = StructMap{
+	ThingWithMapOfInterfaces{},
+	[]MappedField{
+		{
+			StructFieldName: "Interfaces",
+			JSONFieldName:   "interfaces",
+			Contains:        MapOf(PrimitiveMap(Interface())),
+		},
+	},
+}
+
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
@@ -307,6 +323,7 @@ var TestTypeMapper = NewTypeMapper(
 	InnerNonMarshalableThingTypeMap,
 	OuterNonMarshalableThingTypeMap,
 	ThingWithSliceOfPrimitivesTypeMap,
+	ThingWithMapOfInterfacesTypeMap,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -934,6 +951,49 @@ func TestMarshalThingWithSliceOfPrimitives(t *testing.T) {
 func TestValidateThingWithSliceOfPrimitives(t *testing.T) {
 	original := `{"strings":["foo","bar"]}`
 	v := &ThingWithSliceOfPrimitives{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(original), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != original {
+		t.Fatal("Unoriginal Marshal output:", string(data), original)
+	}
+}
+
+func TestMarshalThingWithMapOfInterfaces(t *testing.T) {
+	interfaces := map[string]interface{}{
+		"foo": "bar",
+		"baz": 10,
+		"qux": []string{"dang"},
+	}
+
+	v := ThingWithMapOfInterfaces{
+		Interfaces: interfaces,
+	}
+
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected, err := json.Marshal(map[string]interface{}{"interfaces": interfaces})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(data) != string(expected) {
+		t.Fatal("unexpected Marshal output", string(data), string(expected))
+	}
+}
+
+func TestValidateThignWithMapOfInterfaces(t *testing.T) {
+	original := `{"interfaces":{"baz":10,"foo":"bar","qux":["dang"]}}`
+	v := &ThingWithMapOfInterfaces{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(original), v)
 	if err != nil {
 		t.Fatal(err)
