@@ -292,6 +292,76 @@ func SliceOf(elem TypeMap) TypeMap {
 	}
 }
 
+type MapMap struct {
+	Contains TypeMap
+}
+
+func (mm MapMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+	data, ok := partial.(map[string]interface{})
+	if !ok {
+		return NewValidationError("expected a map")
+	}
+
+	// Maps default to nil, so we need to make() one
+	dstValue.Set(reflect.MakeMap(dstValue.Type()))
+
+	elementType := dstValue.Type().Elem()
+
+	for key, val := range data {
+		// Note: reflect.New() returns a pointer Value, so we have to take its
+		// Elem() before putting it to use
+		dstElem := reflect.New(elementType).Elem()
+
+		err := mm.Contains.Unmarshal(ctx, &dstValue, val, dstElem)
+
+		if err != nil {
+			if ve, ok := err.(*ValidationError); ok {
+				ve.PushKey(key)
+			}
+			return err
+		}
+
+		dstValue.SetMapIndex(reflect.ValueOf(key), dstElem)
+	}
+
+	return nil
+}
+
+func (mm MapMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+
+	result := make(map[string]interface{})
+	keys := src.MapKeys()
+
+	if src.Type().Key().Kind() != reflect.String {
+		panic("key must be a string")
+	}
+
+	for _, key := range keys {
+		data, err := mm.Contains.Marshal(ctx, &src, src.MapIndex(key))
+		if err != nil {
+			return nil, err
+		}
+
+		result[key.String()] = data
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return russellRawMessage{data}, nil
+}
+
+func MapOf(elem TypeMap) TypeMap {
+	return &MapMap{
+		Contains: elem,
+	}
+}
+
 // This is a horrible hack of the go type system
 type variableType struct {
 	switchOnFieldName string
