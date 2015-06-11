@@ -498,14 +498,12 @@ func (m *timeMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfac
 	tstring, ok := partial.(string)
 
 	if !ok {
-		println("HERE")
 		return NewValidationError("not a string")
 	}
 
 	t, err := time.Parse(time.RFC3339, tstring)
 
 	if err != nil {
-		println("THERE:", err.Error(), tstring)
 		return NewValidationError("not a valid RFC 3339 time value")
 	}
 
