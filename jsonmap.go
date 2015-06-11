@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"text/template"
+	"time"
 )
 
 type Context interface{}
@@ -451,7 +452,19 @@ func StringRenderer(text string) *stringRenderer {
 	}
 }
 
+type passthroughMarshaler struct{}
+
+func (m *passthroughMarshaler) Marshal(ctx Context, parent *reflect.Value, field reflect.Value) (json.Marshaler, error) {
+	data, err := json.Marshal(field.Interface())
+	if err != nil {
+		return nil, err
+	}
+
+	return russellRawMessage{data}, nil
+}
+
 type primitiveMap struct {
+	passthroughMarshaler
 	validator Validator
 }
 
@@ -466,19 +479,43 @@ func (m *primitiveMap) Unmarshal(ctx Context, parent *reflect.Value, partial int
 	return nil
 }
 
-func (m *primitiveMap) Marshal(ctx Context, parent *reflect.Value, field reflect.Value) (json.Marshaler, error) {
-	data, err := json.Marshal(field.Interface())
-	if err != nil {
-		return nil, err
-	}
-
-	return russellRawMessage{data}, nil
-}
-
 func PrimitiveMap(v Validator) TypeMap {
 	return &primitiveMap{
 		validator: v,
 	}
+}
+
+type timeMap struct {
+	passthroughMarshaler
+}
+
+func (m *timeMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+	underlying := dstValue.Interface()
+	if _, ok := underlying.(time.Time); !ok {
+		panic("target field for jsonmap.Time() is not a time.Time")
+	}
+
+	tstring, ok := partial.(string)
+
+	if !ok {
+		println("HERE")
+		return NewValidationError("not a string")
+	}
+
+	t, err := time.Parse(time.RFC3339, tstring)
+
+	if err != nil {
+		println("THERE:", err.Error(), tstring)
+		return NewValidationError("not a valid RFC 3339 time value")
+	}
+
+	dstValue.Set(reflect.ValueOf(t))
+
+	return nil
+}
+
+func Time() TypeMap {
+	return &timeMap{}
 }
 
 type TypeMapper struct {

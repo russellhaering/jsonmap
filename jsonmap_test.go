@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type brokenValidator struct{}
@@ -89,6 +90,10 @@ type ThingWithSliceOfPrimitives struct {
 
 type ThingWithMapOfInterfaces struct {
 	Interfaces map[string]interface{}
+}
+
+type ThingWithTime struct {
+	HappenedAt time.Time
 }
 
 var InnerThingTypeMap = StructMap{
@@ -307,6 +312,17 @@ var ThingWithMapOfInterfacesTypeMap = StructMap{
 	},
 }
 
+var ThingWithTimeSchema = StructMap{
+	ThingWithTime{},
+	[]MappedField{
+		{
+			StructFieldName: "HappenedAt",
+			JSONFieldName:   "happened_at",
+			Contains:        Time(),
+		},
+	},
+}
+
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
@@ -324,6 +340,7 @@ var TestTypeMapper = NewTypeMapper(
 	OuterNonMarshalableThingTypeMap,
 	ThingWithSliceOfPrimitivesTypeMap,
 	ThingWithMapOfInterfacesTypeMap,
+	ThingWithTimeSchema,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -991,7 +1008,7 @@ func TestMarshalThingWithMapOfInterfaces(t *testing.T) {
 	}
 }
 
-func TestValidateThignWithMapOfInterfaces(t *testing.T) {
+func TestValidateThingWithMapOfInterfaces(t *testing.T) {
 	original := `{"interfaces":{"baz":10,"foo":"bar","qux":["dang"]}}`
 	v := &ThingWithMapOfInterfaces{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(original), v)
@@ -1005,5 +1022,43 @@ func TestValidateThignWithMapOfInterfaces(t *testing.T) {
 	}
 	if string(data) != original {
 		t.Fatal("Unoriginal Marshal output:", string(data), original)
+	}
+}
+
+func TestMarshalThingWithTime(t *testing.T) {
+	ts, err := time.Parse(time.RFC822, time.RFC822)
+	if err != nil {
+		panic(err)
+	}
+
+	v := ThingWithTime{
+		HappenedAt: ts,
+	}
+
+	expected := `{"happened_at":"2006-01-02T15:04:00Z"}`
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != expected {
+		t.Fatal("Unexpected Marshal output:", string(data), expected)
+	}
+}
+
+func TestUnmarshalThingWithTime(t *testing.T) {
+	ts, err := time.Parse(time.RFC822, time.RFC822)
+	if err != nil {
+		panic(err)
+	}
+
+	v := &ThingWithTime{}
+
+	err = TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"happened_at":"2006-01-02T15:04:00Z"}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !ts.Equal(v.HappenedAt) {
+		t.Fatal("Timestamp mismatch:", v.HappenedAt, ts)
 	}
 }
