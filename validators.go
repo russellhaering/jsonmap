@@ -1,5 +1,7 @@
 package jsonmap
 
+import "math"
+
 type stringValidator struct {
 	minLen int
 	maxLen int
@@ -86,4 +88,44 @@ func (v *interfaceValidator) Validate(value interface{}) (interface{}, error) {
 
 func Interface() *interfaceValidator {
 	return &interfaceValidator{}
+}
+
+type LossyUint64Validator struct {
+	minVal uint64
+	maxVal uint64
+}
+
+func (v *LossyUint64Validator) Validate(value interface{}) (interface{}, error) {
+	f, ok := value.(float64)
+	if !ok || float64(uint64(f)) != f {
+		return nil, NewValidationError("not an integer")
+	}
+
+	i := uint64(f)
+	if i < v.minVal {
+		return nil, NewValidationError("too small, must be at least %d", v.minVal)
+	}
+
+	if i > v.maxVal {
+		return nil, NewValidationError("too large, may not be larger than %d", v.maxVal)
+	}
+
+	return i, nil
+}
+
+func (v *LossyUint64Validator) Min(min uint64) {
+	v.minVal = min
+}
+
+func (v *LossyUint64Validator) Max(max uint64) {
+	v.maxVal = max
+}
+
+// Validate numbers as a uint64. In this process they will be stored as a
+// float64, which can lead to a loss of precision as high as 1024(?).
+func LossyUint64() *LossyUint64Validator {
+	return &LossyUint64Validator{
+		minVal: 0,
+		maxVal: math.MaxUint64,
+	}
 }
