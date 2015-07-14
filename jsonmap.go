@@ -474,8 +474,9 @@ func (m *primitiveMap) Unmarshal(ctx Context, parent *reflect.Value, partial int
 		return err
 	}
 
-	dstValue.Set(reflect.ValueOf(val))
-
+	if val != nil {
+		dstValue.Set(reflect.ValueOf(val))
+	}
 	return nil
 }
 

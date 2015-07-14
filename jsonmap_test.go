@@ -1009,7 +1009,7 @@ func TestMarshalThingWithMapOfInterfaces(t *testing.T) {
 }
 
 func TestValidateThingWithMapOfInterfaces(t *testing.T) {
-	original := `{"interfaces":{"baz":10,"foo":"bar","qux":["dang"]}}`
+	original := `{"interfaces":{"baz":10,"dux":null,"foo":"bar","qux":["dang"]}}`
 	v := &ThingWithMapOfInterfaces{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(original), v)
 	if err != nil {
