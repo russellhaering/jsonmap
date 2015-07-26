@@ -87,6 +87,11 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 		dstValue = dstValue.Elem().Elem()
 	}
 
+	if dstValue.Kind() == reflect.Ptr {
+		dstValue.Set(reflect.New(reflect.TypeOf(sm.UnderlyingType)))
+		dstValue = dstValue.Elem()
+	}
+
 	for _, field := range sm.Fields {
 		if field.ReadOnly {
 			continue
