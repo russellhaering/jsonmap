@@ -368,6 +368,10 @@ func MapOf(elem TypeMap) TypeMap {
 	}
 }
 
+type toStringable interface {
+	ToString() string
+}
+
 // This is a horrible hack of the go type system
 type variableType struct {
 	switchOnFieldName string
@@ -380,13 +384,24 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 		panic("no such underlying field: " + vt.switchOnFieldName)
 	}
 
-	typeKey := typeKeyField.String()
-	typeMap, ok := vt.types[typeKey]
+	keyString := ""
+
+	typeKey := typeKeyField.Interface()
+	switch keyVal := typeKey.(type) {
+	case string:
+		keyString = keyVal
+	case toStringable:
+		keyString = keyVal.ToString()
+	default:
+		panic("cannot convert underlying field to string: " + typeKeyField.String())
+	}
+
+	typeMap, ok := vt.types[keyString]
 
 	if !ok {
 		// NOTE: This error message isn't great because we don't have a way to know
 		// the JSON field name uponw which we're switching.
-		return nil, NewValidationError("invalid type identifier: '%s'", typeKey)
+		return nil, NewValidationError("invalid type identifier: '%s'", keyString)
 	}
 
 	return typeMap, nil
@@ -402,6 +417,10 @@ func (vt *variableType) Unmarshal(ctx Context, parent *reflect.Value, partial in
 }
 
 func (vt *variableType) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+	if src.IsNil() {
+		return russellRawMessage{[]byte("null")}, nil
+	}
+
 	tm, err := vt.pickTypeMap(parent)
 	if err != nil {
 		panic("variable type serialization error: " + err.Error())
