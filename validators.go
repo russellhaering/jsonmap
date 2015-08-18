@@ -1,6 +1,11 @@
 package jsonmap
 
-import "math"
+import (
+	"math"
+	"regexp"
+)
+
+var uuidRegex = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 type stringValidator struct {
 	minLen int
@@ -128,4 +133,19 @@ func LossyUint64() *LossyUint64Validator {
 		minVal: 0,
 		maxVal: math.MaxUint64,
 	}
+}
+
+type uuidStringValidator struct{}
+
+func (v *uuidStringValidator) Validate(value interface{}) (interface{}, error) {
+	s, ok := value.(string)
+	if !ok {
+		return nil, NewValidationError("not a string")
+	}
+
+	if !uuidRegex.MatchString(s) {
+		return nil, NewValidationError("not a valid UUID")
+	}
+
+	return s, nil
 }
