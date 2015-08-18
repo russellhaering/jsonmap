@@ -149,3 +149,7 @@ func (v *uuidStringValidator) Validate(value interface{}) (interface{}, error) {
 
 	return s, nil
 }
+
+func UUIDString() Validator {
+	return &uuidStringValidator{}
+}
