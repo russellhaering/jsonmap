@@ -135,21 +135,25 @@ func LossyUint64() *LossyUint64Validator {
 	}
 }
 
-type uuidStringValidator struct{}
+type UUIDStringValidator struct{}
 
-func (v *uuidStringValidator) Validate(value interface{}) (interface{}, error) {
+func (v *UUIDStringValidator) Validate(value interface{}) (interface{}, error) {
 	s, ok := value.(string)
 	if !ok {
 		return nil, NewValidationError("not a string")
 	}
 
-	if !uuidRegex.MatchString(s) {
-		return nil, NewValidationError("not a valid UUID")
-	}
-
-	return s, nil
+	return v.ValidateString(s)
 }
 
-func UUIDString() Validator {
-	return &uuidStringValidator{}
+func (v *UUIDStringValidator) ValidateString(value string) (string, error) {
+	if !uuidRegex.MatchString(value) {
+		return "", NewValidationError("not a valid UUID")
+	}
+
+	return value, nil
+}
+
+func UUIDString() *UUIDStringValidator {
+	return &UUIDStringValidator{}
 }
