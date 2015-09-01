@@ -116,11 +116,13 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 
 		if field.Contains != nil {
 			err = field.Contains.Unmarshal(ctx, &dstValue, val, dstField)
-		} else {
+		} else if field.Validator != nil {
 			val, err = field.Validator.Validate(val)
 			if err == nil {
 				dstField.Set(reflect.ValueOf(val))
 			}
+		} else {
+			panic("Field must have Contains or Validator: " + field.JSONFieldName)
 		}
 
 		if err != nil {
