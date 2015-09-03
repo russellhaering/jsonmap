@@ -50,6 +50,11 @@ type TypeMap interface {
 	Marshal(ctx Context, parent *reflect.Value, field reflect.Value) (json.Marshaler, error)
 }
 
+type RegisterableTypeMap interface {
+	TypeMap
+	GetUnderlyingType() reflect.Type
+}
+
 type MappedField struct {
 	StructFieldName  string
 	StructGetterName string
@@ -71,6 +76,10 @@ type RawMessage struct {
 
 func (rm RawMessage) MarshalJSON() ([]byte, error) {
 	return rm.Data, nil
+}
+
+func (sm StructMap) GetUnderlyingType() reflect.Type {
+	return reflect.TypeOf(sm.UnderlyingType)
 }
 
 func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
@@ -547,12 +556,12 @@ type TypeMapper struct {
 	typeMaps map[reflect.Type]TypeMap
 }
 
-func NewTypeMapper(maps ...StructMap) *TypeMapper {
+func NewTypeMapper(maps ...RegisterableTypeMap) *TypeMapper {
 	t := &TypeMapper{
 		typeMaps: make(map[reflect.Type]TypeMap),
 	}
 	for _, m := range maps {
-		t.typeMaps[reflect.TypeOf(m.UnderlyingType)] = m
+		t.typeMaps[m.GetUnderlyingType()] = m
 	}
 	return t
 }
