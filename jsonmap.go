@@ -65,11 +65,11 @@ type StructMap struct {
 	Fields         []MappedField
 }
 
-type russellRawMessage struct {
+type RawMessage struct {
 	Data []byte
 }
 
-func (rm russellRawMessage) MarshalJSON() ([]byte, error) {
+func (rm RawMessage) MarshalJSON() ([]byte, error) {
 	return rm.Data, nil
 }
 
@@ -225,7 +225,7 @@ func (sm StructMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Valu
 		buf.WriteByte('}')
 	}
 
-	return russellRawMessage{buf.Bytes()}, nil
+	return RawMessage{buf.Bytes()}, nil
 }
 
 type SliceMap struct {
@@ -291,7 +291,7 @@ func (sm SliceMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Value
 		return nil, err
 	}
 
-	return russellRawMessage{data}, nil
+	return RawMessage{data}, nil
 }
 
 func SliceOf(elem TypeMap) TypeMap {
@@ -361,7 +361,7 @@ func (mm MapMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) 
 		return nil, err
 	}
 
-	return russellRawMessage{data}, nil
+	return RawMessage{data}, nil
 }
 
 func MapOf(elem TypeMap) TypeMap {
@@ -420,7 +420,7 @@ func (vt *variableType) Unmarshal(ctx Context, parent *reflect.Value, partial in
 
 func (vt *variableType) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	if src.IsNil() {
-		return russellRawMessage{[]byte("null")}, nil
+		return RawMessage{[]byte("null")}, nil
 	}
 
 	tm, err := vt.pickTypeMap(parent)
@@ -469,7 +469,7 @@ func (sr *stringRenderer) Marshal(ctx Context, parent *reflect.Value, src reflec
 		return nil, err
 	}
 
-	return russellRawMessage{marshalled}, nil
+	return RawMessage{marshalled}, nil
 }
 
 func StringRenderer(text string) *stringRenderer {
@@ -486,7 +486,7 @@ func (m *passthroughMarshaler) Marshal(ctx Context, parent *reflect.Value, field
 		return nil, err
 	}
 
-	return russellRawMessage{data}, nil
+	return RawMessage{data}, nil
 }
 
 type primitiveMap struct {
