@@ -7,12 +7,13 @@ import (
 
 var uuidRegex = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
-type stringValidator struct {
+type StringValidator struct {
 	minLen int
 	maxLen int
+	re     *regexp.Regexp
 }
 
-func (v *stringValidator) Validate(value interface{}) (interface{}, error) {
+func (v *StringValidator) Validate(value interface{}) (interface{}, error) {
 	s, ok := value.(string)
 	if !ok {
 		return nil, NewValidationError("not a string")
@@ -26,11 +27,20 @@ func (v *stringValidator) Validate(value interface{}) (interface{}, error) {
 		return nil, NewValidationError("too long, may not be more than %d characters", v.maxLen)
 	}
 
+	if v.re != nil && !v.re.MatchString(s) {
+		return nil, NewValidationError("must match regular expression: %s", v.re.String())
+	}
+
 	return s, nil
 }
 
-func String(minLen int, maxLen int) Validator {
-	return &stringValidator{
+func (v *StringValidator) Regex(re *regexp.Regexp) *StringValidator {
+	v.re = re
+	return v
+}
+
+func String(minLen int, maxLen int) *StringValidator {
+	return &StringValidator{
 		minLen: minLen,
 		maxLen: maxLen,
 	}
