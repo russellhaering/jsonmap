@@ -83,6 +83,10 @@ func (sm StructMap) GetUnderlyingType() reflect.Type {
 }
 
 func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+	if partial == nil && (dstValue.Kind() == reflect.Interface || dstValue.Kind() == reflect.Ptr) {
+		return nil
+	}
+
 	data, ok := partial.(map[string]interface{})
 	if !ok {
 		return NewValidationError("expected an object")

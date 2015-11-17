@@ -28,6 +28,10 @@ type OuterPointerThing struct {
 	InnerThing *InnerThing
 }
 
+type OuterInterfaceThing struct {
+	InnerThing interface{}
+}
+
 type OuterSliceThing struct {
 	InnerThings []InnerThing
 }
@@ -133,6 +137,17 @@ var OuterThingTypeMap = StructMap{
 
 var OuterPointerThingTypeMap = StructMap{
 	OuterPointerThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThing",
+			JSONFieldName:   "inner_thing",
+			Contains:        InnerThingTypeMap,
+		},
+	},
+}
+
+var OuterInterfaceThingTypeMap = StructMap{
+	OuterInterfaceThing{},
 	[]MappedField{
 		{
 			StructFieldName: "InnerThing",
@@ -327,6 +342,7 @@ var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
 	OuterPointerThingTypeMap,
+	OuterInterfaceThingTypeMap,
 	OuterSliceThingTypeMap,
 	OuterPointerSliceThingTypeMap,
 	OuterPointerToSliceThingTypeMap,
@@ -655,6 +671,70 @@ func TestMarshalOuterPointerThing(t *testing.T) {
 	}
 	if string(data) != `{"inner_thing":{"foo":"bar","an_int":3,"a_bool":false}}` {
 		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
+func TestUnmarshalOuterPointerThingWithNull(t *testing.T) {
+	v := &OuterPointerThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_thing": null}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.InnerThing != nil {
+		t.Fatal("Expected InnerThing to be nil")
+	}
+}
+
+func TestMarshalOuterInterfaceThing(t *testing.T) {
+	v := &OuterInterfaceThing{
+		InnerThing: &InnerThing{
+			Foo:   "bar",
+			AnInt: 3,
+			ABool: false,
+		},
+	}
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"inner_thing":{"foo":"bar","an_int":3,"a_bool":false}}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
+func TestUnmarshalOuterInterfaceThing(t *testing.T) {
+	v := &OuterInterfaceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_thing": {"foo":"bar","an_int":3,"a_bool":false}}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	innerThing, ok := v.InnerThing.(*InnerThing)
+	if !ok {
+		t.Fatal("InnerThing has an unexpected type")
+	}
+
+	if innerThing.Foo != "bar" {
+		t.Fatal("InnerThing.Bar has an unexpected value")
+	}
+
+	if innerThing.AnInt != 3 {
+		t.Fatal("InnerThing.AnInt has an unexpected value")
+	}
+
+	if innerThing.ABool != false {
+		t.Fatal("InnerThing.ABool has an unexpected value")
+	}
+}
+
+func TestUnmarshalOuterInterfaceThingWithNull(t *testing.T) {
+	v := &OuterInterfaceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_thing": null}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.InnerThing != nil {
+		t.Fatal("Expected InnerThing to be nil")
 	}
 }
 
