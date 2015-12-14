@@ -1,7 +1,10 @@
 package jsonmap
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 )
 
@@ -13,25 +16,28 @@ type StringValidator struct {
 	re     *regexp.Regexp
 }
 
+func (v *StringValidator) ValidateString(s string) (string, error) {
+	if len(s) < v.minLen {
+		return "", NewValidationError("too short, must be at least %d characters", v.minLen)
+	}
+
+	if len(s) > v.maxLen {
+		return "", NewValidationError("too long, may not be more than %d characters", v.maxLen)
+	}
+
+	if v.re != nil && !v.re.MatchString(s) {
+		return "", NewValidationError("must match regular expression: %s", v.re.String())
+	}
+	return s, nil
+}
+
 func (v *StringValidator) Validate(value interface{}) (interface{}, error) {
 	s, ok := value.(string)
 	if !ok {
 		return nil, NewValidationError("not a string")
 	}
 
-	if len(s) < v.minLen {
-		return nil, NewValidationError("too short, must be at least %d characters", v.minLen)
-	}
-
-	if len(s) > v.maxLen {
-		return nil, NewValidationError("too long, may not be more than %d characters", v.maxLen)
-	}
-
-	if v.re != nil && !v.re.MatchString(s) {
-		return nil, NewValidationError("must match regular expression: %s", v.re.String())
-	}
-
-	return s, nil
+	return v.ValidateString(s)
 }
 
 func (v *StringValidator) Regex(re *regexp.Regexp) *StringValidator {
@@ -166,4 +172,71 @@ func (v *UUIDStringValidator) ValidateString(value string) (string, error) {
 
 func UUIDString() *UUIDStringValidator {
 	return &UUIDStringValidator{}
+}
+
+type ssm struct {
+	sv *StringValidator
+}
+
+// Used for StringsArray, which has a "V" field containing []string.
+// Optionally can take a string validator to apply to each entry.
+func StringsSliceMapper(sv *StringValidator) TypeMap {
+	return &ssm{sv: sv}
+}
+
+func (ss *ssm) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+	var err error
+	v := dstValue.FieldByName("V")
+
+	underlying := v.Interface()
+	if _, ok := underlying.([]string); !ok {
+		panic("target field V for StringsSliceMapper is not a []string")
+	}
+
+	if partial == nil {
+		v.Set(reflect.ValueOf([]string{}))
+		return nil
+	}
+
+	data, ok := partial.([]interface{})
+	if !ok {
+		return NewValidationError("expected a list")
+	}
+
+	rv := make([]string, len(data))
+
+	for i, dv := range data {
+		s, ok := dv.(string)
+		if !ok {
+			return fmt.Errorf("Error converting %#v to string", dv)
+		}
+
+		if ss.sv != nil {
+			s, err = ss.sv.ValidateString(s)
+			if err != nil {
+				return err
+			}
+		}
+
+		rv[i] = s
+	}
+
+	v.Set(reflect.ValueOf(rv))
+
+	return nil
+}
+
+func (s *ssm) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+
+	v := src.FieldByName("V")
+
+	data, err := json.Marshal(v.Interface())
+	if err != nil {
+		return nil, err
+	}
+
+	return RawMessage{data}, nil
 }
