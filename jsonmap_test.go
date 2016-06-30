@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 type brokenValidator struct{}
@@ -98,6 +100,10 @@ type ThingWithMapOfInterfaces struct {
 
 type ThingWithTime struct {
 	HappenedAt time.Time
+}
+
+type ThingWithEnumerableInterface struct {
+	ThanksGo interface{}
 }
 
 var InnerThingTypeMap = StructMap{
@@ -338,6 +344,17 @@ var ThingWithTimeSchema = StructMap{
 	},
 }
 
+var ThingWithEnumerableInterfaceSchema = StructMap{
+	ThingWithEnumerableInterface{},
+	[]MappedField{
+		{
+			StructFieldName: "ThanksGo",
+			JSONFieldName:   "thanks",
+			Validator:       OneOf("foo", "bar"),
+		},
+	},
+}
+
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	OuterThingTypeMap,
@@ -357,6 +374,7 @@ var TestTypeMapper = NewTypeMapper(
 	ThingWithSliceOfPrimitivesTypeMap,
 	ThingWithMapOfInterfacesTypeMap,
 	ThingWithTimeSchema,
+	ThingWithEnumerableInterfaceSchema,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -1140,5 +1158,58 @@ func TestUnmarshalThingWithTime(t *testing.T) {
 
 	if !ts.Equal(v.HappenedAt) {
 		t.Fatal("Timestamp mismatch:", v.HappenedAt, ts)
+	}
+}
+
+func TestGenericUnmarshalInvalidInput(t *testing.T) {
+	invalidCases := []struct {
+		Input        string
+		Into         ThingWithEnumerableInterface
+		ErrorMessage string
+	}{
+		{
+			Input:        `{"thanks": "baz"}`,
+			Into:         ThingWithEnumerableInterface{},
+			ErrorMessage: `validation error: 'thanks': Value must be one of: ["foo","bar"]`,
+		},
+		{
+			Input:        `{"thanks": 12}`,
+			Into:         ThingWithEnumerableInterface{},
+			ErrorMessage: `validation error: 'thanks': not a string`,
+		},
+	}
+
+	for _, invalidCase := range invalidCases {
+		dest := invalidCase.Into
+		err := TestTypeMapper.Unmarshal(EmptyContext, []byte(invalidCase.Input), &dest)
+		require.Error(t, err)
+		require.Equal(t, invalidCase.ErrorMessage, err.Error())
+	}
+}
+
+func TestValidThingWithEnumerableInterface(t *testing.T) {
+	validCases := []struct {
+		Input    string
+		Expected ThingWithEnumerableInterface
+	}{
+		{
+			Input: `{"thanks": "foo"}`,
+			Expected: ThingWithEnumerableInterface{
+				ThanksGo: "foo",
+			},
+		},
+		{
+			Input: `{"thanks": "bar"}`,
+			Expected: ThingWithEnumerableInterface{
+				ThanksGo: "bar",
+			},
+		},
+	}
+
+	for _, validCase := range validCases {
+		dest := validCase.Expected
+		err := TestTypeMapper.Unmarshal(EmptyContext, []byte(validCase.Input), &dest)
+		require.Nil(t, err)
+		require.EqualValues(t, validCase.Expected, dest)
 	}
 }

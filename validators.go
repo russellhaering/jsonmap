@@ -240,3 +240,51 @@ func (s *ssm) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (js
 
 	return RawMessage{data}, nil
 }
+
+type enumeratedValuesValidator struct {
+	allowedSlice  []string
+	allowedValues map[string]struct{}
+}
+
+func (v *enumeratedValuesValidator) Validate(value interface{}) (interface{}, error) {
+	s, ok := value.(string)
+	if !ok {
+		return nil, NewValidationError("not a string")
+	}
+	_, ok = v.allowedValues[s]
+
+	if !ok {
+		serialized, err := json.Marshal(v.allowedSlice)
+		if err != nil {
+			// allowedSlice should be a static value provided by the programmer,
+			// so an error serializing it definitely represents a progrramming error.
+			panic(err)
+		}
+		return nil, NewValidationError("Value must be one of: %s", string(serialized))
+	}
+
+	return value, nil
+}
+
+func OneOf(allowed ...string) Validator {
+	v := &enumeratedValuesValidator{
+		allowedSlice:  allowed,
+		allowedValues: map[string]struct{}{},
+	}
+
+	for _, value := range allowed {
+		v.allowedValues[value] = struct{}{}
+	}
+
+	return v
+}
+
+func KeyFromVariableTypeMap(m map[string]TypeMap) Validator {
+	keys := make([]string, 0, len(m))
+
+	for key := range m {
+		keys = append(keys, key)
+	}
+
+	return OneOf(keys...)
+}
