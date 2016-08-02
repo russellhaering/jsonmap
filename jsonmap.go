@@ -13,6 +13,11 @@ type Context interface{}
 
 var EmptyContext Context
 
+var (
+	nullJSONValue  = []byte("null")
+	nullRawMessage = RawMessage{nullJSONValue}
+)
+
 type ValidationError struct {
 	reason string
 	rpath  []string
@@ -180,7 +185,7 @@ func (sm StructMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Valu
 	}
 
 	if isNil {
-		buf.Write([]byte("null"))
+		buf.Write(nullJSONValue)
 	} else {
 		expectedType := reflect.TypeOf(sm.UnderlyingType)
 		if src.Type() != expectedType {
@@ -288,6 +293,10 @@ func (sm SliceMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Value
 		src = src.Elem()
 	}
 
+	if src.IsNil() {
+		return nullRawMessage, nil
+	}
+
 	result := make([]interface{}, src.Len())
 
 	for i := 0; i < src.Len(); i++ {
@@ -351,6 +360,10 @@ func (mm MapMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface
 func (mm MapMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	if src.Kind() == reflect.Ptr {
 		src = src.Elem()
+	}
+
+	if src.IsNil() {
+		return nullRawMessage, nil
 	}
 
 	result := make(map[string]interface{})
@@ -433,7 +446,7 @@ func (vt *variableType) Unmarshal(ctx Context, parent *reflect.Value, partial in
 
 func (vt *variableType) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	if src.IsNil() {
-		return RawMessage{[]byte("null")}, nil
+		return nullRawMessage, nil
 	}
 
 	tm, err := vt.pickTypeMap(parent)

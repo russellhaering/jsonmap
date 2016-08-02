@@ -1063,6 +1063,19 @@ func TestMarshalThingWithSliceOfPrimitives(t *testing.T) {
 	}
 }
 
+func TestMarshalThingWithNilSliceOfPrimitives(t *testing.T) {
+	v := ThingWithSliceOfPrimitives{}
+
+	expected := `{"strings":null}`
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != expected {
+		t.Fatal("Unexpected Marshal output:", string(data), expected)
+	}
+}
+
 func TestValidateThingWithSliceOfPrimitives(t *testing.T) {
 	original := `{"strings":["foo","bar"]}`
 	v := &ThingWithSliceOfPrimitives{}
