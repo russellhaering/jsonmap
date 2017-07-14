@@ -130,6 +130,10 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 			}
 		}
 
+		if val == nil && field.Optional {
+			continue
+		}
+
 		var err error
 
 		if field.Contains != nil {
