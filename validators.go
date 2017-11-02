@@ -11,9 +11,10 @@ import (
 var uuidRegex = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 type StringValidator struct {
-	minLen int
-	maxLen int
-	re     *regexp.Regexp
+	minLen   int
+	maxLen   int
+	re       *regexp.Regexp
+	reErrMsg string
 }
 
 func (v *StringValidator) ValidateString(s string) (string, error) {
@@ -26,6 +27,10 @@ func (v *StringValidator) ValidateString(s string) (string, error) {
 	}
 
 	if v.re != nil && !v.re.MatchString(s) {
+		if v.reErrMsg != "" {
+			return "", NewValidationError(v.reErrMsg)
+		}
+
 		return "", NewValidationError("must match regular expression: %s", v.re.String())
 	}
 	return s, nil
@@ -42,6 +47,12 @@ func (v *StringValidator) Validate(value interface{}) (interface{}, error) {
 
 func (v *StringValidator) Regex(re *regexp.Regexp) *StringValidator {
 	v.re = re
+	return v
+}
+
+func (v *StringValidator) RegexError(re *regexp.Regexp, errMsg string) *StringValidator {
+	v.re = re
+	v.reErrMsg = errMsg
 	return v
 }
 
