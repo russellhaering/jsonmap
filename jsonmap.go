@@ -614,7 +614,7 @@ func (tm *TypeMapper) getTypeMap(obj interface{}) TypeMap {
 }
 
 func (tm *TypeMapper) Unmarshal(ctx Context, data []byte, dest interface{}) error {
-	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
+	if reflect.TypeOf(dest).Kind() != reflect.Ptr || dest == nil {
 		panic("cannot unmarshal to non-pointer")
 	}
 	m := tm.getTypeMap(dest)
@@ -622,12 +622,26 @@ func (tm *TypeMapper) Unmarshal(ctx Context, data []byte, dest interface{}) erro
 
 	err := json.Unmarshal(data, &partial)
 	if err != nil {
-		if _, ok := err.(*json.SyntaxError); ok {
-			err = NewValidationError(err.Error())
+		// We attempt to wrap json parse/unmarshal errors that can be caused by invalid input by
+		// a validation error here. This is somewhat fragile and dependent on go's json impl.
+		switch e := err.(type) {
+		case *json.InvalidUnmarshalError:
+			panic(e)
+		case *json.SyntaxError:
+			return NewValidationError(e.Error())
+		case *json.UnmarshalTypeError:
+			return NewValidationError("json: cannot unmarshal, not an object")
+		default:
+			// These are exported errors, but deprecated according to documentation.
+			//case *json.InvalidUTF8Error:
+			//case *json.UnmarshalFieldError:
+			// These are exported errors, but only used for Marshal(). They are listed here for completeness.
+			//case *json.MarshalerError:
+			//case *json.UnsupportedTypeError:
+			//case *json.UnsupportedValueError:
+			return e
 		}
-		return err
 	}
-
 	return m.Unmarshal(ctx, nil, partial, reflect.ValueOf(dest).Elem())
 }
 
