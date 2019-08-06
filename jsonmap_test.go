@@ -544,7 +544,7 @@ func TestValidateOuterRangeSliceThingOverMax(t *testing.T) {
 }
 
 func TestValidateOuterRangeSliceThingInRange(t *testing.T) {
-	v := &OuterMinSliceThing{}
+	v := &OuterRangeSliceThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}, {"foo": "fooz2"}]}`), v)
 	if err != nil {
 		t.Fatal(err)
