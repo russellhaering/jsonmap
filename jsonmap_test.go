@@ -38,6 +38,18 @@ type OuterSliceThing struct {
 	InnerThings []InnerThing
 }
 
+type OuterMaxSliceThing struct {
+	InnerThings []InnerThing
+}
+
+type OuterMinSliceThing struct {
+	InnerThings []InnerThing
+}
+
+type OuterRangeSliceThing struct {
+	InnerThings []InnerThing
+}
+
 type OuterPointerSliceThing struct {
 	InnerThings []*InnerThing
 }
@@ -170,6 +182,39 @@ var OuterSliceThingTypeMap = StructMap{
 			StructFieldName: "InnerThings",
 			JSONFieldName:   "inner_things",
 			Contains:        SliceOf(InnerThingTypeMap),
+		},
+	},
+}
+
+var ContainsMaxSliceSizeTypeMap = StructMap{
+	OuterMaxSliceThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThings",
+			JSONFieldName:   "inner_things",
+			Contains:        SliceOfMax(InnerThingTypeMap, 2),
+		},
+	},
+}
+
+var ContainsMinSliceSizeTypeMap = StructMap{
+	OuterMinSliceThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThings",
+			JSONFieldName:   "inner_things",
+			Contains:        SliceOfMin(InnerThingTypeMap, 2),
+		},
+	},
+}
+
+var ContainsRangeSliceSizeTypeMap = StructMap{
+	OuterRangeSliceThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThings",
+			JSONFieldName:   "inner_things",
+			Contains:        SliceOfRange(InnerThingTypeMap, 1, 2),
 		},
 	},
 }
@@ -361,6 +406,9 @@ var TestTypeMapper = NewTypeMapper(
 	OuterPointerThingTypeMap,
 	OuterInterfaceThingTypeMap,
 	OuterSliceThingTypeMap,
+	ContainsMaxSliceSizeTypeMap,
+	ContainsMinSliceSizeTypeMap,
+	ContainsRangeSliceSizeTypeMap,
 	OuterPointerSliceThingTypeMap,
 	OuterPointerToSliceThingTypeMap,
 	OuterVariableThingTypeMap,
@@ -432,6 +480,74 @@ func TestValidateOuterSliceThingNotAList(t *testing.T) {
 	}
 	if err.Error() != "validation error: 'inner_things': expected a list" {
 		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestValidateOuterSliceThingOverMax(t *testing.T) {
+	v := &OuterMaxSliceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}, {"foo": "fooz2"}, {"foo": "fooz3"}]}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "validation error: 'inner_things': must have at most 2 elements" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestValidateOuterSliceThingUnderMax(t *testing.T) {
+	v := &OuterMaxSliceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}, {"foo": "fooz2"}]}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateOuterSliceThingUnderMin(t *testing.T) {
+	v := &OuterMinSliceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}]}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "validation error: 'inner_things': must have at least 2 elements" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestValidateOuterSliceThingOverMin(t *testing.T) {
+	v := &OuterMinSliceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}, {"foo": "fooz2"}]}`), v)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestValidateOuterRangeSliceThingUnderMin(t *testing.T) {
+	v := &OuterRangeSliceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": []}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "validation error: 'inner_things': must have between 1 and 2 elements" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestValidateOuterRangeSliceThingOverMax(t *testing.T) {
+	v := &OuterRangeSliceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}, {"foo": "fooz2"}, {"foo": "fooz3"}]}`), v)
+	if err == nil {
+		t.Fatal("Unexpected success")
+	}
+	if err.Error() != "validation error: 'inner_things': must have between 1 and 2 elements" {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
+}
+
+func TestValidateOuterRangeSliceThingInRange(t *testing.T) {
+	v := &OuterRangeSliceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}, {"foo": "fooz2"}]}`), v)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -252,12 +252,19 @@ func (sm StructMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Valu
 
 type SliceMap struct {
 	Contains TypeMap
+	minLen *int
+	maxLen *int
 }
 
 func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	data, ok := partial.([]interface{})
 	if !ok {
 		return NewValidationError("expected a list")
+	}
+
+	err := sm.validateSliceWithinRange(data)
+	if err != nil {
+		return err
 	}
 
 	// Appending to a reflect.Value returns a new reflect.Value despite the
@@ -324,6 +331,50 @@ func SliceOf(elem TypeMap) TypeMap {
 	return SliceMap{
 		Contains: elem,
 	}
+}
+
+func SliceOfMax(elem TypeMap, max int) TypeMap {
+	return SliceMap{
+		Contains: elem,
+		maxLen: &max,
+	}
+}
+
+func SliceOfMin(elem TypeMap, min int) TypeMap {
+	return SliceMap{
+		Contains: elem,
+		minLen: &min,
+	}
+}
+
+func SliceOfRange(elem TypeMap, min, max int) TypeMap {
+	return SliceMap{
+		Contains: elem,
+		minLen: &min,
+		maxLen: &max,
+	}
+}
+
+func (sm *SliceMap) validateSliceWithinRange(data []interface{}) error {
+	if sm.maxLen == nil && sm.minLen == nil {
+		return nil
+	} else if sm.maxLen == nil {
+		if len(data) < *sm.minLen {
+			return NewValidationError("must have at least %d elements", *sm.minLen)
+		}
+	} else if sm.minLen == nil {
+		if len(data) > *sm.maxLen {
+			return NewValidationError("must have at most %d elements", *sm.maxLen)
+		}
+	} else if *sm.maxLen == *sm.minLen {
+		if len(data) != *sm.maxLen {
+			return NewValidationError("must have %d elements", *sm.maxLen)
+		}
+	} else if len(data) > *sm.maxLen || len(data) < *sm.minLen {
+		return NewValidationError("must have between %d and %d elements", *sm.minLen, *sm.maxLen)
+	}
+
+	return nil
 }
 
 type MapMap struct {
