@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/rnd42/go-jsonpointer"
 	"reflect"
+	"strconv"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -18,32 +21,96 @@ var (
 	nullRawMessage = RawMessage{nullJSONValue}
 )
 
-type ValidationError struct {
-	reason string
-	rpath  []string
+type FlattenedPathError struct {
+	Path string
+	Message string
 }
 
-func NewValidationError(reason string, a ...interface{}) *ValidationError {
-	return &ValidationError{
-		reason: fmt.Sprintf(reason, a...),
-		rpath:  make([]string, 0, 2),
+func (e *FlattenedPathError) String() string {
+	return fmt.Sprintf("%s: %s\n", e.Path, e.Message)
+}
+
+func NewFlattedPathError(path, message string) *FlattenedPathError {
+	return &FlattenedPathError{
+		Path: path,
+		Message: message,
 	}
+}
+
+type ValidationError struct {
+	NestedErrors []*FlattenedPathError
 }
 
 func (e *ValidationError) Error() string {
-	msg := e.reason
-	for _, seg := range e.rpath {
-		msg = seg + ": " + msg
+	b := strings.Builder{}
+	b.WriteString("Validation Errors: \n")
+	for _, f := range e.NestedErrors {
+		b.WriteString(f.String())
 	}
-	return "validation error: " + msg
+	return b.String()
 }
 
-func (e *ValidationError) PushIndex(idx int) {
-	e.rpath = append(e.rpath, fmt.Sprintf("index %d", idx))
+func (e *ValidationError) AddError(err *FieldError, path ...string)  {
+	path = append(path, err.Field)
+	pointer := jsonpointer.NewJSONPointerFromTokens(&path)
+	if err.Message != "" {
+		jsonpath := pointer.String()
+		e.NestedErrors = append(e.NestedErrors, NewFlattedPathError(jsonpath, err.Message))
+	}
+	for _, v := range err.FieldErrors {
+		e.AddError(v, path...)
+	}
 }
 
-func (e *ValidationError) PushKey(key string) {
-	e.rpath = append(e.rpath, fmt.Sprintf("'%s'", key))
+type FieldError struct {
+	Field string
+	Message string
+	FieldErrors []*FieldError
+}
+
+func (e *FieldError) ErrorMessage() string {
+	if e.Field != "" && e.Message != "" {
+		return fmt.Sprintf("%s: %s\n", e.Field, e.Message)
+	}
+	return e.Message
+}
+
+func (e *FieldError) Error() string {
+	prefix := e.Field
+	msg := e.ErrorMessage()
+	for _, f := range e.FieldErrors {
+		msg += prefix + f.ErrorMessage()
+	}
+	return msg
+}
+
+func (e *FieldError) AddError(err *FieldError)  {
+	e.FieldErrors = append(e.FieldErrors, err)
+}
+
+func (e *FieldError) SetField(field string) {
+	e.Field = field
+}
+
+func NewValidationErrorWithField(field, message string) *FieldError {
+	return &FieldError{
+		Field: field,
+		Message: message,
+	}
+}
+
+func (e *FieldError) Flatten() *ValidationError {
+	me := &ValidationError{}
+	for _, v := range e.FieldErrors {
+		me.AddError(v)
+	}
+	return me
+}
+
+func NewValidationError(reason string, a ...interface{}) *FieldError {
+	return &FieldError{
+		Message: fmt.Sprintf(reason, a...),
+	}
 }
 
 type Validator interface {
@@ -110,6 +177,8 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 		dstValue = dstValue.Elem()
 	}
 
+	errs := &FieldError{}
+
 	for _, field := range sm.Fields {
 		if field.ReadOnly {
 			continue
@@ -126,7 +195,9 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 			if field.Optional {
 				continue
 			} else {
-				return NewValidationError("missing required field: %s", field.JSONFieldName)
+				err := NewValidationErrorWithField(field.JSONFieldName, "missing required field")
+				errs.AddError(err)
+				continue
 			}
 		}
 
@@ -148,11 +219,19 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 		}
 
 		if err != nil {
-			if ve, ok := err.(*ValidationError); ok {
-				ve.PushKey(field.JSONFieldName)
+			switch e := err.(type) {
+			case *FieldError:
+				e.SetField(field.JSONFieldName)
+				errs.AddError(e)
+			default:
+				ve := NewValidationErrorWithField(field.JSONFieldName, e.Error())
+				errs.AddError(ve)
 			}
-			return err
 		}
+	}
+
+	if len(errs.FieldErrors) != 0 {
+		return errs
 	}
 
 	return nil
@@ -274,6 +353,8 @@ func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfa
 
 	elementType := dstValue.Type().Elem()
 
+	errs := &FieldError{}
+
 	for i, val := range data {
 		// Note: reflect.New() returns a pointer Value, so we have to take its
 		// Elem() before putting it to use
@@ -281,14 +362,26 @@ func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfa
 
 		err := sm.Contains.Unmarshal(ctx, &dstValue, val, dstElem)
 
+
 		if err != nil {
-			if ve, ok := err.(*ValidationError); ok {
-				ve.PushIndex(i)
+
+			switch e := err.(type) {
+			case *FieldError:
+				e.SetField(strconv.Itoa(i))
+				errs.AddError(e)
+			default:
+				// This should never happen but just to be safe
+				ve := NewValidationErrorWithField(strconv.Itoa(i), e.Error())
+				errs.AddError(ve)
 			}
-			return err
+			continue
 		}
 
 		result = reflect.Append(result, dstElem)
+	}
+
+	if len(errs.FieldErrors) != 0 {
+		return errs
 	}
 
 	// Note: this actually works with a reflect.Value of a slice, even though it
@@ -381,11 +474,13 @@ type MapMap struct {
 	Contains TypeMap
 }
 
-func (mm MapMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+func (mm MapMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error { //check this
 	data, ok := partial.(map[string]interface{})
 	if !ok {
 		return NewValidationError("expected a map")
 	}
+
+	errs := &FieldError{}
 
 	// Maps default to nil, so we need to make() one
 	dstValue.Set(reflect.MakeMap(dstValue.Type()))
@@ -400,13 +495,22 @@ func (mm MapMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface
 		err := mm.Contains.Unmarshal(ctx, &dstValue, val, dstElem)
 
 		if err != nil {
-			if ve, ok := err.(*ValidationError); ok {
-				ve.PushKey(key)
+			switch e := err.(type) {
+			case *FieldError:
+				e.SetField(key)
+				errs.AddError(e)
+			default:
+				// This should never happen but just to be safe
+				ne := NewValidationErrorWithField(key, e.Error())
+				errs.AddError(ne)
 			}
-			return err
+			continue
 		}
 
 		dstValue.SetMapIndex(reflect.ValueOf(key), dstElem)
+	}
+	if len(errs.FieldErrors) != 0 {
+		return errs
 	}
 
 	return nil
@@ -693,7 +797,14 @@ func (tm *TypeMapper) Unmarshal(ctx Context, data []byte, dest interface{}) erro
 			return e
 		}
 	}
-	return m.Unmarshal(ctx, nil, partial, reflect.ValueOf(dest).Elem())
+	err = m.Unmarshal(ctx, nil, partial, reflect.ValueOf(dest).Elem())
+	if err != nil {
+		if e, ok := err.(*FieldError); ok {
+			return e.Flatten()
+		}
+		return err
+	}
+	return nil
 }
 
 func (tm *TypeMapper) Marshal(ctx Context, src interface{}) ([]byte, error) {

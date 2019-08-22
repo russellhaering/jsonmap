@@ -22,8 +22,20 @@ type InnerThing struct {
 	ABool bool
 }
 
+type AnotherInnerThing struct {
+	Foo   string
+	AnInt int
+	ABool bool
+	HappenedAt time.Time
+	ThanksGo interface{}
+}
+
 type OuterThing struct {
 	InnerThing InnerThing
+}
+
+type OuterInnerThingMap struct {
+	InnerThingMap map[string]InnerThing
 }
 
 type OuterPointerThing struct {
@@ -36,6 +48,10 @@ type OuterInterfaceThing struct {
 
 type OuterSliceThing struct {
 	InnerThings []InnerThing
+}
+
+type Outer2DSliceThing struct {
+	InnerThings [][]InnerThing
 }
 
 type OuterMaxSliceThing struct {
@@ -110,6 +126,14 @@ type ThingWithMapOfInterfaces struct {
 	Interfaces map[string]interface{}
 }
 
+type ThingWithMapOfStrings struct {
+	Strings map[string]string
+}
+
+type OuterMapThing struct {
+	InnerMap map[string]interface{}
+}
+
 type ThingWithTime struct {
 	HappenedAt time.Time
 }
@@ -142,6 +166,42 @@ var InnerThingTypeMap = StructMap{
 	},
 }
 
+var AnotherInnerThingTypeMap = StructMap{
+	AnotherInnerThing{},
+	[]MappedField{
+		{
+			StructFieldName: "Foo",
+			JSONFieldName:   "foo",
+			Validator:       String(1, 5),
+			Optional:        true,
+		},
+		{
+			StructFieldName: "AnInt",
+			JSONFieldName:   "an~int",
+			Validator:       Integer(0, 10),
+			Optional:        true,
+		},
+		{
+			StructFieldName: "ABool",
+			JSONFieldName:   "a_bool",
+			Validator:       Boolean(),
+			Optional:        true,
+		},
+		{
+			StructFieldName: "HappenedAt",
+			JSONFieldName:   "happened_at",
+			Contains:        Time(),
+			Optional: true,
+		},
+		{
+			StructFieldName: "ThanksGo",
+			JSONFieldName:   "thanks",
+			Validator:       OneOf("foo", "bar"),
+			Optional: true,
+		},
+	},
+}
+
 var OuterThingTypeMap = StructMap{
 	OuterThing{},
 	[]MappedField{
@@ -149,6 +209,18 @@ var OuterThingTypeMap = StructMap{
 			StructFieldName: "InnerThing",
 			JSONFieldName:   "inner_thing",
 			Contains:        InnerThingTypeMap,
+		},
+	},
+}
+
+
+var MapOfInnerThingTypeMap = StructMap{
+	OuterInnerThingMap{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThingMap",
+			JSONFieldName:   "inner_thing_map",
+			Contains:        MapOf(InnerThingTypeMap),
 		},
 	},
 }
@@ -182,6 +254,17 @@ var OuterSliceThingTypeMap = StructMap{
 			StructFieldName: "InnerThings",
 			JSONFieldName:   "inner_things",
 			Contains:        SliceOf(InnerThingTypeMap),
+		},
+	},
+}
+
+var Outer2DSliceThingTypeMap = StructMap{
+	Outer2DSliceThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThings",
+			JSONFieldName:   "inner_things",
+			Contains:        SliceOf(SliceOf(InnerThingTypeMap)),
 		},
 	},
 }
@@ -366,6 +449,16 @@ var ThingWithSliceOfPrimitivesTypeMap = StructMap{
 		},
 	},
 }
+var ThingWithInnerMapTypeMap = StructMap{
+	OuterMapThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerMap",
+			JSONFieldName:   "inner_map",
+			Contains:        MapOf(PrimitiveMap(Interface())),
+		},
+	},
+}
 
 var ThingWithMapOfInterfacesTypeMap = StructMap{
 	ThingWithMapOfInterfaces{},
@@ -374,6 +467,17 @@ var ThingWithMapOfInterfacesTypeMap = StructMap{
 			StructFieldName: "Interfaces",
 			JSONFieldName:   "interfaces",
 			Contains:        MapOf(PrimitiveMap(Interface())),
+		},
+	},
+}
+
+var ThingWithMapOfStringsTypeMap = StructMap{
+	ThingWithMapOfStrings{},
+	[]MappedField{
+		{
+			StructFieldName: "Strings",
+			JSONFieldName:   "strings",
+			Contains:        MapOf(PrimitiveMap(String(0, 5))),
 		},
 	},
 }
@@ -402,6 +506,7 @@ var ThingWithEnumerableInterfaceSchema = StructMap{
 
 var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
+	AnotherInnerThingTypeMap,
 	OuterThingTypeMap,
 	OuterPointerThingTypeMap,
 	OuterInterfaceThingTypeMap,
@@ -420,9 +525,13 @@ var TestTypeMapper = NewTypeMapper(
 	InnerNonMarshalableThingTypeMap,
 	OuterNonMarshalableThingTypeMap,
 	ThingWithSliceOfPrimitivesTypeMap,
+	ThingWithInnerMapTypeMap,
 	ThingWithMapOfInterfacesTypeMap,
+	ThingWithMapOfStringsTypeMap,
 	ThingWithTimeSchema,
 	ThingWithEnumerableInterfaceSchema,
+	MapOfInnerThingTypeMap,
+	Outer2DSliceThingTypeMap,
 )
 
 func TestValidateInnerThing(t *testing.T) {
@@ -434,6 +543,18 @@ func TestValidateInnerThing(t *testing.T) {
 	if v.Foo != "fooz" {
 		t.Fatal("Field Foo does not have expected value 'fooz':", v.Foo)
 	}
+}
+
+func TestValidateAnotherInnerThing(t *testing.T) {
+	expected := `Validation Errors: 
+/foo: too long, may not be more than 5 characters
+/an~0int: too large, may not be larger than 10
+/happened_at: not a valid RFC 3339 time value
+/thanks: Value must be one of: ["foo","bar"]
+`
+	v := &AnotherInnerThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"foo": "foozzzy", "an~int": 11, "happened_at": "hi", "thanks": "baz"}`), v)
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateOuterThing(t *testing.T) {
@@ -462,36 +583,51 @@ func TestValidateOuterSliceThing(t *testing.T) {
 }
 
 func TestValidateOuterSliceThingInvalidElement(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_things/0/foo: too long, may not be more than 12 characters
+`
 	v := &OuterSliceThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooziswaytoolooong"}]}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'inner_things': index 0: 'foo': too long, may not be more than 12 characters" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateOuterSliceThingMultipleInvalidElements(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_things/0/foo: too long, may not be more than 12 characters
+/inner_things/1/foo: too long, may not be more than 12 characters
+`
+	v := &OuterSliceThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooziswaytoolooong"}, {"foo": "fooziswaytoolooong2"}]}`), v)
+	require.EqualError(t, err, expected)
+}
+func TestValidateOuter2DSliceThing(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_things/0/1/foo: too long, may not be more than 12 characters
+/inner_things/1/0/foo: too long, may not be more than 12 characters
+/inner_things/1/1/foo: too long, may not be more than 12 characters
+`
+	v := &Outer2DSliceThing{}
+	original := `{"inner_things": [[{"foo": "fooz"}, {"foo": "fooziswaytoolooong2"}], [{"foo": "fooziswaytoolooong"},{"foo": "fooziswaytoolooongagain"}]]}`
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(original), v)
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateOuterSliceThingNotAList(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_things: expected a list
+`
 	v := &OuterSliceThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": "foo"}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'inner_things': expected a list" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateOuterSliceThingOverMax(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_things: must have at most 2 elements
+`
 	v := &OuterMaxSliceThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}, {"foo": "fooz2"}, {"foo": "fooz3"}]}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'inner_things': must have at most 2 elements" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateOuterSliceThingUnderMax(t *testing.T) {
@@ -503,14 +639,12 @@ func TestValidateOuterSliceThingUnderMax(t *testing.T) {
 }
 
 func TestValidateOuterSliceThingUnderMin(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_things: must have at least 2 elements
+`
 	v := &OuterMinSliceThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}]}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'inner_things': must have at least 2 elements" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateOuterSliceThingOverMin(t *testing.T) {
@@ -522,25 +656,21 @@ func TestValidateOuterSliceThingOverMin(t *testing.T) {
 }
 
 func TestValidateOuterRangeSliceThingUnderMin(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_things: must have between 1 and 2 elements
+`
 	v := &OuterRangeSliceThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": []}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'inner_things': must have between 1 and 2 elements" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateOuterRangeSliceThingOverMax(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_things: must have between 1 and 2 elements
+`
 	v := &OuterRangeSliceThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_things": [{"foo": "fooz"}, {"foo": "fooz2"}, {"foo": "fooz3"}]}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'inner_things': must have between 1 and 2 elements" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateOuterRangeSliceThingInRange(t *testing.T) {
@@ -585,105 +715,127 @@ func TestValidateUnregisteredThing(t *testing.T) {
 }
 
 func TestValidateStringTypeMismatch(t *testing.T) {
+	expected := `Validation Errors: 
+/foo: not a string
+`
 	v := &InnerThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"foo": 12.0}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'foo': not a string" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateStringTooShort(t *testing.T) {
+	expected := `Validation Errors: 
+/foo: too short, must be at least 1 characters
+`
 	v := &InnerThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"foo": ""}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'foo': too short, must be at least 1 characters" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateStringTooLong(t *testing.T) {
+	expected := `Validation Errors: 
+/foo: too long, may not be more than 12 characters
+`
 	v := &InnerThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"foo": "thisvalueistoolong"}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'foo': too long, may not be more than 12 characters" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateBooleanTypeMismatch(t *testing.T) {
+	expected := `Validation Errors: 
+/a_bool: not a boolean
+`
 	v := &InnerThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"a_bool": 12.0}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'a_bool': not a boolean" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateIntegerTypeMismatch(t *testing.T) {
+	expected := `Validation Errors: 
+/an_int: not an integer
+`
 	v := &InnerThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": false}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'an_int': not an integer" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateIntegerNumericTypeMismatch(t *testing.T) {
+	expected := `Validation Errors: 
+/an_int: not an integer
+`
 	v := &InnerThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": 12.1}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'an_int': not an integer" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateIntegerTooSmall(t *testing.T) {
+	expected := `Validation Errors: 
+/an_int: too small, must be at least 0
+`
+
 	v := &InnerThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": -1}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'an_int': too small, must be at least 0" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateIntegerTooLarge(t *testing.T) {
+	expected := `Validation Errors: 
+/an_int: too large, may not be larger than 10
+`
 	v := &InnerThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": 2048}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: 'an_int': too large, may not be larger than 10" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateMultipleTypeMismatch(t *testing.T) {
+	expected := `Validation Errors: 
+/an_int: too large, may not be larger than 10
+/a_bool: not a boolean
+`
+	v := &InnerThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"an_int": 2048, "a_bool": 12.0}`), v)
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateMapOfInnerThing(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_thing_map/key1/an_int: too large, may not be larger than 10
+/inner_thing_map/key1/a_bool: not a boolean
+/inner_thing_map/key2/an_int: too large, may not be larger than 10
+/inner_thing_map/key2/a_bool: not a boolean
+`
+	v := &OuterInnerThingMap{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_thing_map":{"key1":{"an_int": 2048, "a_bool": 12.0}, "key2":{"an_int": 2048, "a_bool": 12.0}}}`), v)
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateMapOfInnerThingFirstEntryValid(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_thing_map/key2/an_int: too large, may not be larger than 10
+/inner_thing_map/key2/a_bool: not a boolean
+`
+	v := &OuterInnerThingMap{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_thing_map":{"key1":{"an_int": 5, "a_bool": true}, "key2":{"an_int": 2048, "a_bool": 12.0}}}`), v)
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateWithUnexpectedError(t *testing.T) {
+	expected := `Validation Errors: 
+/invalid: this should be a ValidationError
+`
 	v := &BrokenThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"invalid": "definitely"}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if _, ok := err.(*ValidationError); ok {
-		t.Fatal("Unexpectedly received a proper ValidationError")
-	}
-	if err.Error() != "this should be a ValidationError" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateThingWithMapOfStrings(t *testing.T) {
+	expected := `Validation Errors: 
+/strings/key1: too long, may not be more than 5 characters
+`
+	original := `{"strings":{"key1":"tooooooolongomg"}}`
+	v := &ThingWithMapOfStrings{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(original), v)
+	require.EqualError(t, err, expected)
 }
 
 func TestUnmarshalVariableTypeThing(t *testing.T) {
@@ -723,26 +875,39 @@ func TestUnmarshalVariableTypeThing(t *testing.T) {
 	}
 }
 
+func TestValidateVariableTypeThing(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_thing: invalid type identifier: 'unknown'
+`
+	v := &OuterVariableThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"unknown","inner_thing":{"foo":"bar"}}`), v)
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateNotAnObject(t *testing.T) {
+	v := &InnerThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`[1, 2, 3]`), v)
+	require.EqualError(t, err, "json: cannot unmarshal, not an object")
+}
+
 func TestUnmarshalList(t *testing.T) {
 	v := &InnerThing{}
 	err := InnerThingTypeMap.Unmarshal(EmptyContext, nil, []interface{}{}, reflect.ValueOf(v))
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "validation error: expected an object" {
+	if err.Error() != "expected an object" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
 
 func TestUnmarshalMissingRequiredField(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_thing: missing required field
+`
 	v := &OuterThing{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{}`), v)
-	if err == nil {
-		t.Fatal("Unexpected success")
-	}
-	if err.Error() != "validation error: missing required field: inner_thing" {
-		t.Fatal("Unexpected error message:", err.Error())
-	}
+	require.EqualError(t, err, expected)
 }
 
 func TestUnmarshalNonPointer(t *testing.T) {
@@ -992,7 +1157,7 @@ func TestMarshalVariableTypeThingInvalidTypeIdentifier(t *testing.T) {
 		if r == nil {
 			t.Fatal("No panic")
 		}
-		if r != "variable type serialization error: validation error: invalid type identifier: 'wrong'" {
+		if r != "variable type serialization error: invalid type identifier: 'wrong'" {
 			t.Fatal("Incorrect panic message", r)
 		}
 	}()
@@ -1043,7 +1208,7 @@ func TestUnmarshalInvalidJSON(t *testing.T) {
 	if err == nil {
 		t.Fatal("Unexpected success")
 	}
-	if err.Error() != "validation error: unexpected end of JSON input" {
+	if err.Error() != "unexpected end of JSON input" {
 		t.Fatal("Unexpected error message:", err.Error())
 	}
 }
@@ -1209,6 +1374,16 @@ func TestValidateThingWithSliceOfPrimitives(t *testing.T) {
 	}
 }
 
+func TestValidateOuterMapThingNotAMap(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_map: expected a map
+`
+
+	v := &OuterMapThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_map": 3}`), v)
+	require.EqualError(t, err, expected)
+}
+
 func TestMarshalThingWithMapOfInterfaces(t *testing.T) {
 	interfaces := map[string]interface{}{
 		"foo": "bar",
@@ -1299,12 +1474,16 @@ func TestGenericUnmarshalInvalidInput(t *testing.T) {
 		{
 			Input:        `{"thanks": "baz"}`,
 			Into:         ThingWithEnumerableInterface{},
-			ErrorMessage: `validation error: 'thanks': Value must be one of: ["foo","bar"]`,
+			ErrorMessage: `Validation Errors: 
+/thanks: Value must be one of: ["foo","bar"]
+`,
 		},
 		{
 			Input:        `{"thanks": 12}`,
 			Into:         ThingWithEnumerableInterface{},
-			ErrorMessage: `validation error: 'thanks': not a string`,
+			ErrorMessage: `Validation Errors: 
+/thanks: not a string
+`,
 		},
 	}
 
