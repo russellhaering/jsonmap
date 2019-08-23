@@ -30,6 +30,10 @@ type AnotherInnerThing struct {
 	ThanksGo interface{}
 }
 
+type AnotherOuterThing struct {
+	InnerThing AnotherInnerThing
+}
+
 type OuterThing struct {
 	InnerThing InnerThing
 }
@@ -209,6 +213,17 @@ var OuterThingTypeMap = StructMap{
 			StructFieldName: "InnerThing",
 			JSONFieldName:   "inner_thing",
 			Contains:        InnerThingTypeMap,
+		},
+	},
+}
+
+var AnotherOuterThingTypeMap = StructMap{
+	AnotherOuterThing{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerThing",
+			JSONFieldName:   "another/inner/thing",
+			Contains:        AnotherInnerThingTypeMap,
 		},
 	},
 }
@@ -508,6 +523,7 @@ var TestTypeMapper = NewTypeMapper(
 	InnerThingTypeMap,
 	AnotherInnerThingTypeMap,
 	OuterThingTypeMap,
+	AnotherOuterThingTypeMap,
 	OuterPointerThingTypeMap,
 	OuterInterfaceThingTypeMap,
 	OuterSliceThingTypeMap,
@@ -566,6 +582,19 @@ func TestValidateOuterThing(t *testing.T) {
 	if v.InnerThing.Foo != "fooz" {
 		t.Fatal("Inner field Foo does not have expected value 'fooz':", v.InnerThing.Foo)
 	}
+}
+
+func TestValidateAnotherOuterThing(t *testing.T) {
+	expected := `Validation Errors: 
+/another~1inner~1thing/foo: too long, may not be more than 5 characters
+/another~1inner~1thing/an~0int: too large, may not be larger than 10
+/another~1inner~1thing/happened_at: not a valid RFC 3339 time value
+/another~1inner~1thing/thanks: Value must be one of: ["foo","bar"]
+`
+
+	v := &AnotherOuterThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"another/inner/thing": {"foo": "foozzzy", "an~int": 11, "happened_at": "hi", "thanks": "baz"}}`), v)
+	require.EqualError(t, err, expected)
 }
 
 func TestValidateOuterSliceThing(t *testing.T) {

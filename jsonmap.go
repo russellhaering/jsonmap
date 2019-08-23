@@ -30,7 +30,7 @@ func (e *FlattenedPathError) String() string {
 	return fmt.Sprintf("%s: %s\n", e.Path, e.Message)
 }
 
-func NewFlattedPathError(path, message string) *FlattenedPathError {
+func NewFlattenedPathError(path, message string) *FlattenedPathError {
 	return &FlattenedPathError{
 		Path: path,
 		Message: message,
@@ -55,7 +55,7 @@ func (e *ValidationError) AddError(err *FieldError, path ...string)  {
 	pointer := jsonpointer.NewJSONPointerFromTokens(&path)
 	if err.Message != "" {
 		jsonpath := pointer.String()
-		e.NestedErrors = append(e.NestedErrors, NewFlattedPathError(jsonpath, err.Message))
+		e.NestedErrors = append(e.NestedErrors, NewFlattenedPathError(jsonpath, err.Message))
 	}
 	for _, v := range err.FieldErrors {
 		e.AddError(v, path...)
