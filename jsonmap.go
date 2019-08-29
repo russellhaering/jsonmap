@@ -37,11 +37,15 @@ func NewFlattenedPathError(path, message string) *FlattenedPathError {
 	}
 }
 
-type ValidationError struct {
+type MultiValidationError struct {
 	NestedErrors []*FlattenedPathError
 }
 
-func (e *ValidationError) Error() string {
+func (e *MultiValidationError) Errors() []*FlattenedPathError {
+	return e.NestedErrors
+}
+
+func (e *MultiValidationError) Error() string {
 	b := strings.Builder{}
 	b.WriteString("Validation Errors: \n")
 	for _, f := range e.NestedErrors {
@@ -50,65 +54,65 @@ func (e *ValidationError) Error() string {
 	return b.String()
 }
 
-func (e *ValidationError) AddError(err *FieldError, path ...string)  {
+func (e *MultiValidationError) AddError(err *ValidationError, path ...string)  {
 	path = append(path, err.Field)
 	pointer := jsonpointer.NewJSONPointerFromTokens(&path)
 	if err.Message != "" {
 		jsonpath := pointer.String()
 		e.NestedErrors = append(e.NestedErrors, NewFlattenedPathError(jsonpath, err.Message))
 	}
-	for _, v := range err.FieldErrors {
+	for _, v := range err.NestedErrors {
 		e.AddError(v, path...)
 	}
 }
 
-type FieldError struct {
-	Field string
-	Message string
-	FieldErrors []*FieldError
+type ValidationError struct {
+	Field        string
+	Message      string
+	NestedErrors []*ValidationError
 }
 
-func (e *FieldError) ErrorMessage() string {
+func (e *ValidationError) ErrorMessage() string {
 	if e.Field != "" && e.Message != "" {
 		return fmt.Sprintf("%s: %s\n", e.Field, e.Message)
 	}
 	return e.Message
 }
 
-func (e *FieldError) Error() string {
+func (e *ValidationError) Error() string {
 	prefix := e.Field
 	msg := e.ErrorMessage()
-	for _, f := range e.FieldErrors {
+	for _, f := range e.NestedErrors {
 		msg += prefix + f.ErrorMessage()
 	}
 	return msg
 }
 
-func (e *FieldError) AddError(err *FieldError)  {
-	e.FieldErrors = append(e.FieldErrors, err)
+func (e *ValidationError) AddError(err *ValidationError)  {
+	e.NestedErrors = append(e.NestedErrors, err)
 }
 
-func (e *FieldError) SetField(field string) {
+func (e *ValidationError) SetField(field string) {
 	e.Field = field
 }
 
-func NewValidationErrorWithField(field, message string) *FieldError {
-	return &FieldError{
+func NewValidationErrorWithField(field, message string) *ValidationError {
+	return &ValidationError{
 		Field: field,
 		Message: message,
 	}
 }
 
-func (e *FieldError) Flatten() *ValidationError {
-	me := &ValidationError{}
-	for _, v := range e.FieldErrors {
+func (e *ValidationError) Flatten() *MultiValidationError {
+	me := &MultiValidationError{}
+	for _, v := range e.NestedErrors {
 		me.AddError(v)
 	}
 	return me
 }
 
-func NewValidationError(reason string, a ...interface{}) *FieldError {
-	return &FieldError{
+func NewValidationError(reason string, a ...interface{}) *ValidationError {
+	return &ValidationError{
 		Message: fmt.Sprintf(reason, a...),
 	}
 }
@@ -177,7 +181,7 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 		dstValue = dstValue.Elem()
 	}
 
-	errs := &FieldError{}
+	errs := &ValidationError{}
 
 	for _, field := range sm.Fields {
 		if field.ReadOnly {
@@ -220,7 +224,7 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 
 		if err != nil {
 			switch e := err.(type) {
-			case *FieldError:
+			case *ValidationError:
 				e.SetField(field.JSONFieldName)
 				errs.AddError(e)
 			default:
@@ -230,7 +234,7 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 		}
 	}
 
-	if len(errs.FieldErrors) != 0 {
+	if len(errs.NestedErrors) != 0 {
 		return errs
 	}
 
@@ -353,7 +357,7 @@ func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfa
 
 	elementType := dstValue.Type().Elem()
 
-	errs := &FieldError{}
+	errs := &ValidationError{}
 
 	for i, val := range data {
 		// Note: reflect.New() returns a pointer Value, so we have to take its
@@ -366,7 +370,7 @@ func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfa
 		if err != nil {
 
 			switch e := err.(type) {
-			case *FieldError:
+			case *ValidationError:
 				e.SetField(strconv.Itoa(i))
 				errs.AddError(e)
 			default:
@@ -380,7 +384,7 @@ func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfa
 		result = reflect.Append(result, dstElem)
 	}
 
-	if len(errs.FieldErrors) != 0 {
+	if len(errs.NestedErrors) != 0 {
 		return errs
 	}
 
@@ -480,7 +484,7 @@ func (mm MapMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface
 		return NewValidationError("expected a map")
 	}
 
-	errs := &FieldError{}
+	errs := &ValidationError{}
 
 	// Maps default to nil, so we need to make() one
 	dstValue.Set(reflect.MakeMap(dstValue.Type()))
@@ -496,7 +500,7 @@ func (mm MapMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface
 
 		if err != nil {
 			switch e := err.(type) {
-			case *FieldError:
+			case *ValidationError:
 				e.SetField(key)
 				errs.AddError(e)
 			default:
@@ -509,7 +513,7 @@ func (mm MapMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface
 
 		dstValue.SetMapIndex(reflect.ValueOf(key), dstElem)
 	}
-	if len(errs.FieldErrors) != 0 {
+	if len(errs.NestedErrors) != 0 {
 		return errs
 	}
 
@@ -799,7 +803,7 @@ func (tm *TypeMapper) Unmarshal(ctx Context, data []byte, dest interface{}) erro
 	}
 	err = m.Unmarshal(ctx, nil, partial, reflect.ValueOf(dest).Elem())
 	if err != nil {
-		if e, ok := err.(*FieldError); ok {
+		if e, ok := err.(*ValidationError); ok {
 			return e.Flatten()
 		}
 		return err

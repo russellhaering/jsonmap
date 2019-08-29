@@ -827,15 +827,24 @@ func TestValidateMultipleTypeMismatch(t *testing.T) {
 }
 
 func TestValidateMapOfInnerThing(t *testing.T) {
-	expected := `Validation Errors: 
+	expected1 := `Validation Errors: 
 /inner_thing_map/key1/an_int: too large, may not be larger than 10
 /inner_thing_map/key1/a_bool: not a boolean
 /inner_thing_map/key2/an_int: too large, may not be larger than 10
 /inner_thing_map/key2/a_bool: not a boolean
 `
+	expected2 := `Validation Errors: 
+/inner_thing_map/key2/an_int: too large, may not be larger than 10
+/inner_thing_map/key2/a_bool: not a boolean
+/inner_thing_map/key1/an_int: too large, may not be larger than 10
+/inner_thing_map/key1/a_bool: not a boolean
+`
 	v := &OuterInnerThingMap{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_thing_map":{"key1":{"an_int": 2048, "a_bool": 12.0}, "key2":{"an_int": 2048, "a_bool": 12.0}}}`), v)
-	require.EqualError(t, err, expected)
+
+	if err.Error() != expected1 && err.Error() != expected2 {
+		t.Fatal("Unexpected error message:", err.Error())
+	}
 }
 
 func TestValidateMapOfInnerThingFirstEntryValid(t *testing.T) {
