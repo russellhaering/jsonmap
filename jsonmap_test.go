@@ -88,7 +88,17 @@ type OuterVariableThing struct {
 }
 
 type OuterVariableThingInnerTypeOneOf struct {
-	InnerType  string `json:"inner_type"`
+	InnerType  string `json:"inner_type,omitempty"`
+	InnerValue interface{} `json:"inner_thing"`
+}
+
+type OuterVariableThingInnerTypeNoJsonTag struct {
+	InnerType  string
+	InnerValue interface{} `json:"inner_thing"`
+}
+
+type OuterVariableThingInnerTypeIgnoredJsonTag struct {
+	InnerType  string `json:"-"`
 	InnerValue interface{} `json:"inner_thing"`
 }
 
@@ -394,6 +404,45 @@ var OuterVariableThingWithOneOfInnerTypeMap = StructMap{
 	},
 }
 
+
+var OuterVariableThingWithInnerTypeNoJsonTagTypeMap = StructMap{
+	OuterVariableThingInnerTypeNoJsonTag{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerType",
+			JSONFieldName:   "inner_type",
+			Validator:       OneOf("these", "are", "allowed"),
+		},
+		{
+			StructFieldName: "InnerValue",
+			JSONFieldName:   "inner_thing",
+			Contains: VariableType("InnerType", map[string]TypeMap{
+				"foo": InnerThingTypeMap,
+				"bar": OtherInnerThingTypeMap,
+			}),
+		},
+	},
+}
+
+var OuterVariableThingWithInnerTypeIgnoredJsonTagTypeMap = StructMap{
+	OuterVariableThingInnerTypeIgnoredJsonTag{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerType",
+			JSONFieldName:   "inner_type",
+			Validator:       OneOf("these", "are", "allowed"),
+		},
+		{
+			StructFieldName: "InnerValue",
+			JSONFieldName:   "inner_thing",
+			Contains: VariableType("InnerType", map[string]TypeMap{
+				"foo": InnerThingTypeMap,
+				"bar": OtherInnerThingTypeMap,
+			}),
+		},
+	},
+}
+
 var BrokenOuterVariableThingTypeMap = StructMap{
 	OtherOuterVariableThing{},
 	[]MappedField{
@@ -558,6 +607,8 @@ var TestTypeMapper = NewTypeMapper(
 	OuterPointerToSliceThingTypeMap,
 	OuterVariableThingTypeMap,
 	OuterVariableThingWithOneOfInnerTypeMap,
+	OuterVariableThingWithInnerTypeNoJsonTagTypeMap,
+	OuterVariableThingWithInnerTypeIgnoredJsonTagTypeMap,
 	BrokenOuterVariableThingTypeMap,
 	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
@@ -953,6 +1004,26 @@ func TestValidateVariableTypeWithSwitchFieldValidationError(t *testing.T) {
 /inner_thing: cannot validate, invalid input for 'inner_type'
 `
 	v := &OuterVariableThingInnerTypeOneOf{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"unknown","inner_thing":{"foo":"bar"}}`), v)
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateVariableTypeSwitchFieldNoJsonTag(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_type: Value must be one of: ["these","are","allowed"]
+/inner_thing: invalid type identifier
+`
+	v := &OuterVariableThingInnerTypeNoJsonTag{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"unknown","inner_thing":{"foo":"bar"}}`), v)
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateVariableTypeSwitchFieldIgnoredJsonTag(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_type: Value must be one of: ["these","are","allowed"]
+/inner_thing: invalid type identifier
+`
+	v := &OuterVariableThingInnerTypeIgnoredJsonTag{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"unknown","inner_thing":{"foo":"bar"}}`), v)
 	require.EqualError(t, err, expected)
 }
