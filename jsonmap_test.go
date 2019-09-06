@@ -87,6 +87,11 @@ type OuterVariableThing struct {
 	InnerValue interface{}
 }
 
+type OuterVariableThingInnerTypeOneOf struct {
+	InnerType  string `json:"inner_type"`
+	InnerValue interface{} `json:"inner_thing"`
+}
+
 type OtherOuterVariableThing OuterVariableThing
 
 type ReadOnlyThing struct {
@@ -370,6 +375,25 @@ var OuterVariableThingTypeMap = StructMap{
 	},
 }
 
+var OuterVariableThingWithOneOfInnerTypeMap = StructMap{
+	OuterVariableThingInnerTypeOneOf{},
+	[]MappedField{
+		{
+			StructFieldName: "InnerType",
+			JSONFieldName:   "inner_type",
+			Validator:       OneOf("these", "are", "allowed"),
+		},
+		{
+			StructFieldName: "InnerValue",
+			JSONFieldName:   "inner_thing",
+			Contains: VariableType("InnerType", map[string]TypeMap{
+				"foo": InnerThingTypeMap,
+				"bar": OtherInnerThingTypeMap,
+			}),
+		},
+	},
+}
+
 var BrokenOuterVariableThingTypeMap = StructMap{
 	OtherOuterVariableThing{},
 	[]MappedField{
@@ -533,6 +557,7 @@ var TestTypeMapper = NewTypeMapper(
 	OuterPointerSliceThingTypeMap,
 	OuterPointerToSliceThingTypeMap,
 	OuterVariableThingTypeMap,
+	OuterVariableThingWithOneOfInnerTypeMap,
 	BrokenOuterVariableThingTypeMap,
 	ReadOnlyThingTypeMap,
 	TypoedThingTypeMap,
@@ -918,6 +943,16 @@ func TestValidateVariableTypeThing(t *testing.T) {
 /inner_thing: invalid type identifier: 'unknown'
 `
 	v := &OuterVariableThing{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"unknown","inner_thing":{"foo":"bar"}}`), v)
+	require.EqualError(t, err, expected)
+}
+
+func TestValidateVariableTypeWithSwitchFieldValidationError(t *testing.T) {
+	expected := `Validation Errors: 
+/inner_type: Value must be one of: ["these","are","allowed"]
+/inner_thing: cannot validate, invalid input for 'inner_type'
+`
+	v := &OuterVariableThingInnerTypeOneOf{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"unknown","inner_thing":{"foo":"bar"}}`), v)
 	require.EqualError(t, err, expected)
 }
