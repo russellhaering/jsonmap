@@ -271,6 +271,12 @@ func (v *enumeratedValuesValidator) Validate(value interface{}) (interface{}, er
 			// so an error serializing it definitely represents a progrramming error.
 			panic(err)
 		}
+
+
+		// If we want to use the invalid string value for error messages, return the string value instead of nil and in
+		// the calling function, check if the return value is valid instead of checking if an error was returned, when
+		// setting that value in the dest object (this valid check would handle if the input value is not a string)
+		// return s, NewValidationError("Value must be one of: %s", string(serialized))
 		return nil, NewValidationError("Value must be one of: %s", string(serialized))
 	}
 

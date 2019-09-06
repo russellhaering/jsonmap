@@ -215,6 +215,7 @@ func (sm StructMap) Unmarshal(ctx Context, parent *reflect.Value, partial interf
 			err = field.Contains.Unmarshal(ctx, &dstValue, val, dstField)
 		} else if field.Validator != nil {
 			val, err = field.Validator.Validate(val)
+			// Check reflect.ValueOf(val).IsValid() instead of err == nil if returning the invalid input in Validate
 			if err == nil {
 				dstField.Set(reflect.ValueOf(val))
 			}
@@ -592,7 +593,20 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 	if !ok {
 		// NOTE: This error message isn't great because we don't have a way to know
 		// the JSON field name uponw which we're switching.
-		return nil, NewValidationError("invalid type identifier: '%s'", keyString)
+		//TODO: include JSON field name uponw which we're switching to other error messages
+
+		if keyString != "" {
+			return nil, NewValidationError("invalid type identifier: '%s'", keyString)
+		}
+
+		if f, found := parent.Type().FieldByName(vt.switchOnFieldName); found {
+			jsonField := f.Tag.Get("json")
+			if jsonField != "" {
+				return nil, NewValidationError("cannot validate, invalid input for '%s'", jsonField)
+			}
+		}
+
+		return nil, NewValidationError("invalid type identifier")
 	}
 
 	return typeMap, nil
