@@ -600,7 +600,7 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 		}
 
 		if f, found := parent.Type().FieldByName(vt.switchOnFieldName); found {
-			jsonField := f.Tag.Get("json")
+			jsonField := parseJsonTag(f)
 			if jsonField != "" {
 				return nil, NewValidationError("cannot validate, invalid input for '%s'", jsonField)
 			}
@@ -622,7 +622,7 @@ func (vt *variableType) Unmarshal(ctx Context, parent *reflect.Value, partial in
 }
 
 func (vt *variableType) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
-	if src.IsNil() {
+	if !src.IsValid() {
 		return nullRawMessage, nil
 	}
 
@@ -849,4 +849,17 @@ func (tm *TypeMapper) MarshalIndent(ctx Context, src interface{}, prefix, indent
 	}
 
 	return buf.Bytes(), nil
+}
+
+// extracts the json field name from the field's json tag:
+// `json:"bar,omitempty"` => "bar"
+// `json:"bar"` => "bar"
+// `json:"-"` => ""
+
+func parseJsonTag(field reflect.StructField) string {
+	tag := field.Tag.Get("json")
+	if tag == "" || tag == "-" {
+		return ""
+	}
+	return strings.Split(tag, ",")[0]
 }
