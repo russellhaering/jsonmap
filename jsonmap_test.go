@@ -1304,6 +1304,19 @@ func TestMarshalVariableTypeThingIntegerValid(t *testing.T) {
 	}
 }
 
+func TestMarshalVariableTypeThingIntegerValidZeroCase(t *testing.T) {
+	v := &OuterVariableThingInnerTypeOneOf{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"these","inner_thing":0}`), v)
+
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"inner_type":"these","inner_thing":0}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
 func TestMarshalBrokenVariableTypeThing(t *testing.T) {
 	defer func() {
 		r := recover()
