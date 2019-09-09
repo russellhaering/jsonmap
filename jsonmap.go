@@ -622,7 +622,7 @@ func (vt *variableType) Unmarshal(ctx Context, parent *reflect.Value, partial in
 }
 
 func (vt *variableType) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
-	if !src.IsValid() {
+	if src.IsZero() {
 		return nullRawMessage, nil
 	}
 
