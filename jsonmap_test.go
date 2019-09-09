@@ -399,6 +399,9 @@ var OuterVariableThingWithOneOfInnerTypeMap = StructMap{
 			Contains: VariableType("InnerType", map[string]TypeMap{
 				"foo": InnerThingTypeMap,
 				"bar": OtherInnerThingTypeMap,
+				"these": PrimitiveMap(Integer(-5, 10)),
+				"are": PrimitiveMap(String(1, 5)),
+				"allowed": InnerThingTypeMap,
 			}),
 		},
 	},
@@ -1271,6 +1274,33 @@ func TestMarshalVariableTypeThing(t *testing.T) {
 		if string(data) != `{"inner_type":"bar","inner_thing":{"bar":"test"}}` {
 			t.Fatal("Unexpected Marshal output:", string(data))
 		}
+	}
+}
+
+
+func TestMarshalVariableTypeThingIntegerInvalid(t *testing.T) {
+	v := &OuterVariableThingInnerTypeOneOf{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"these","inner_thing":15}`), v)
+
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"inner_type":"these","inner_thing":null}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
+	}
+}
+
+func TestMarshalVariableTypeThingIntegerValid(t *testing.T) {
+	v := &OuterVariableThingInnerTypeOneOf{}
+	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"these","inner_thing":5}`), v)
+
+	data, err := TestTypeMapper.Marshal(EmptyContext, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"inner_type":"these","inner_thing":5}` {
+		t.Fatal("Unexpected Marshal output:", string(data))
 	}
 }
 
