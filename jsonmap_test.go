@@ -3,9 +3,12 @@ package jsonmap
 import (
 	"encoding/json"
 	"errors"
+	"net/url"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 )
@@ -1704,4 +1707,142 @@ func TestValidThingWithEnumerableInterface(t *testing.T) {
 		require.Nil(t, err)
 		require.EqualValues(t, validCase.Expected, dest)
 	}
+}
+
+type DogStruct struct {
+	Age int
+	Name string
+	Owners []string
+}
+
+func StrRangeFactory(min, max int) func(string) bool {
+	return func(s string) bool {
+		return min <= len(s) && len(s) <= max
+	}
+}
+
+func IntRangeFactory(min, max int) func(int) bool {
+	return func(n int) bool {
+		return min <= n && n <= max
+	}
+}
+
+func StrRegexFactory(r *regexp.Regexp) func(string) bool {
+	return func(s string) bool {
+		return r.MatchString(s)
+	}
+}
+
+func SliceRangeFactory(min, max int) func([]string) bool {
+	return func(sli []string) bool {
+		return min <= len(sli) && len(sli) <= max
+	}
+}
+
+var DogParamMap = QueryMap{
+	UnderlyingType: DogStruct{},
+	Parameters: []MappedParameter{
+		{
+			StructFieldName: "Age",
+			ParameterName: "age",
+			Mapper: IntQueryParameterMapper{
+				[]func(int) bool{
+					IntRangeFactory(0, 100),
+				},
+			},
+		},
+		{
+			StructFieldName: "Name",
+			ParameterName: "name",
+			Mapper: StringQueryParameterMapper{
+				[]func(string) bool{
+					StrRangeFactory(1, 10),
+					StrRegexFactory(regexp.MustCompile(".*")),
+				},
+			},
+		},
+		{
+			StructFieldName: "Owners",
+			ParameterName: "owners",
+			Mapper: StrSliceQueryParameterMapper{
+				[]func([]string) bool {
+					SliceRangeFactory(0, 3),
+				},
+				StringQueryParameterMapper{
+					[]func(string) bool{
+						StrRangeFactory(1, 10),
+						StrRegexFactory(regexp.MustCompile("[a-z]")),
+					},
+				},
+			},
+		},
+	},
+}
+
+type RequestFilter struct {
+	UUID string
+	Count int
+	States []string
+	Search string
+}
+
+var RequestFilterMapping = QueryMap{
+	RequestFilter{},
+	[]MappedParameter{
+		{
+			"UUID",
+			"uuid",
+			StringQueryParameterMapper{
+				[]func(string) bool{
+					StrRegexFactory(uuidRegex),
+					utf8.ValidString,
+				},
+			},
+		},
+		{
+			"Count",
+			"count",
+			IntQueryParameterMapper{
+				[]func(int) bool{
+					IntRangeFactory(0, 500),
+				},
+			},
+		},
+		{
+			"Search",
+			"search",
+			StringQueryParameterMapper{
+				[]func(string) bool{
+					utf8.ValidString,
+				},
+			},
+		},
+	},
+}
+
+
+func TestParamMapping(t *testing.T) {
+	urlQuery, _ := url.ParseQuery(`owners=Alice&name=Spot&owners=Bob&age=10`)
+	dog := DogStruct{}
+
+	err := DogParamMap.Decode(urlQuery, &dog)
+	require.NoError(t, err)
+	require.Equal(t, dog.Age, 10)
+	require.Equal(t, dog.Name, "Spot")
+	require.EqualValues(t, dog.Owners, []string{"Alice", "Bob"})
+
+	urlQuery, _ = url.ParseQuery(`count=38&uuid=00000000-0000-1000-9000-000000000000&search=foobar`)
+	filter := RequestFilter{}
+	err = RequestFilterMapping.Decode(urlQuery, &filter)
+	require.NoError(t, err)
+	require.Equal(t, 38, filter.Count)
+	require.Equal(t, "foobar", filter.Search)
+	require.Equal(t, "00000000-0000-1000-9000-000000000000", filter.UUID)
+
+	urlQuery, _ = url.ParseQuery("count=-1&uuid=00000000-0000-1000-9000-000000000000&search=bar")
+	err = RequestFilterMapping.Decode(urlQuery, &filter)
+	require.Error(t, err, "a validation test failed")
+	urlQuery, _ = url.ParseQuery("count=1&uuid=00000000-0000-1000-9000-000000000000&search=\xDAbar")
+	err = RequestFilterMapping.Decode(urlQuery, &filter)
+	require.Error(t, err, "a validation test failed")
 }

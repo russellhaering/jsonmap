@@ -1,150 +1,166 @@
 package jsonmap
 
 import (
-	"fmt"
+	"errors"
+	"reflect"
 	"strconv"
 )
 
-// Map an individual value between its struct and query representations
-type QueryValueMapper interface {
-	Decode(string) (interface{}, error)
-	Encode(interface{}) (string, error)
-}
-
-// Map a slice of values between struct and query representation
-type QueryParameterMapper interface {
-	Decode([]string) (interface{}, error)
-	Encode(interface{}) ([]string, error)
-}
-
-// SingletonParameterMapper wraps a QueryValueMapper to expose a Query
-type SingletonParameterMapper struct {
-	ValueMapper  QueryValueMapper
-	IgnoreExtras bool
-}
-
-func (m *SingletonParameterMapper) Decode(in []string) (interface{}, error) {
-	switch len(in) {
-	case 0:
-		return nil, nil
-
-	case 1:
-		return m.ValueMapper.Decode(in[0])
-	default:
-		if m.IgnoreExtras {
-			return m.ValueMapper.Decode(in[0])
-		}
-
-		return nil, fmt.Errorf("received %d values, only expected 1", len(in))
-	}
-}
-
-func (m *SingletonParameterMapper) Encode(in interface{}) ([]string, error) {
-	out, err := m.ValueMapper.Encode(in)
-	if err != nil {
-		return nil, err
-	}
-
-	return []string{out}, nil
-}
-
-type RepeatedParameterMapper struct {
-	ValueMapper  QueryValueMapper
-	IgnoreExtras bool
-}
-
-func (m *RepeatedParameterMapper) Decode(in []string) (interface{}, error) {
-	out := make([]interface{}, len(in))
-	for i, val := range in {
-		decoded, err := m.ValueMapper.Decode(val)
-		if err != nil {
-			return nil, err
-		}
-
-		out[i] = decoded
-	}
-
-	return out, nil
-}
-
-func (m *RepeatedParameterMapper) Encode(in interface{}) ([]string, error) {
-	inSlice, ok := in.([]interface{})
-	if !ok {
-	}
-
-	out := make([]string{}, len(in))
-	out, err := m.ValueMapper.Encode(in)
-	if err != nil {
-		return nil, err
-	}
-
-	return []string{out}, nil
-}
-
-type StringQueryValueMapper struct {
-	Validator Validator
-}
-
-func (m *StringQueryValueMapper) Encode(in interface{}) (string, error) {
-	out, ok := in.(string)
-	if !ok {
-		return "", fmt.Errorf("invalid type")
-	}
-
-	return out, nil
-}
-
-func (m *StringQueryValueMapper) Decode(in string) (interface{}, error) {
-	out, err := m.Validator.Validate(in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-
-
-type IntegerValueMapper struct {
-	Validator Validator
-}
-
-func (m *IntegerValueMapper) Encode(in interface{}) (string, error) {
-	out, ok := in.(int)
-	if !ok {
-		return "", fmt.Errorf("invalid type")
-	}
-
-	return strconv.Itoa(out), nil
-}
-
-func (m *IntegerValueMapper) Decode(in string) (interface{}, error) {
-	out, err := m.Validator.Validate(in)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-type MappedParameter struct {
-	StructFieldName string
-	ParameterName   string
-	Mapper          QueryValueMapper
-}
-
+// This is the overarching struct used to transform structs into url params
+// and vice versa
 type QueryMap struct {
 	UnderlyingType interface{}
 	Parameters     []MappedParameter
 }
 
-var UserFilterMap = QueryMap{
-	UserFilter{},
-	[]MappedParameter{
-		{
-			StructFieldName: "Offset",
-			ParameterName:   "offset",
-			Mapper: SingletonParameterMapper{
+// Taking a struct and turning it into a url param. The precise mechanisms of doing
+// so are are defined in the individual MappedParameter
+func (qm QueryMap) Encode(src interface{}, urlQuery map[string][]string) error {
+	srcVal := reflect.ValueOf(src)
+	for _, p := range qm.Parameters {
+		field := srcVal.FieldByName(p.StructFieldName)
+		strVal, err := p.Mapper.Encode(reflect.ValueOf(field))
+		if err != nil {
+			return errors.New("error in encoding struct")
+		}
 
-			},
-		},
-	},
+		urlQuery[p.ParameterName] = strVal
+	}
+	return nil
+}
+
+func (qm QueryMap) Decode(urlQuery map[string][]string, dst interface{}) error {
+	if reflect.ValueOf(dst).Elem().Type() != reflect.TypeOf(qm.UnderlyingType) {
+		return errors.New("attempting to decode into the wrong struct")
+	}
+
+	dstVal := reflect.ValueOf(dst).Elem()
+	for _, param := range qm.Parameters {
+		field := dstVal.FieldByName(param.StructFieldName)
+		fieldVal, err := param.Mapper.Decode(urlQuery[param.ParameterName])
+		if err != nil {
+			return err
+		}
+
+		field.Set(reflect.ValueOf(fieldVal))
+	}
+	return nil
+}
+
+// MappedParameter corresponds to each field in a specific struct,
+// it requires struct's name and the corresponding key value in the URL query
+type MappedParameter struct {
+	StructFieldName string
+	ParameterName   string
+	Mapper          QueryParameterMapper
+}
+
+// QueryParameterMapper defines how Query value and struct are to be transformed
+// into each other. It is from a slice of strings, reflecting the structure of url.Values
+// These can be specified by their type (whichever struct the Parameter mapper will be,
+// and the restrictions defined on the type, defined by Validators slice below)
+type QueryParameterMapper interface {
+	Encode(interface{}) ([]string, error)
+	Decode([]string) (interface{}, error)
+}
+
+// Examples of mappers
+type StringQueryParameterMapper struct {
+	Validators []func(string) bool
+}
+
+func (sqpm StringQueryParameterMapper) Decode(src []string) (interface{}, error) {
+	if len(src) != 1 {
+		return nil, errors.New("expected only one value")
+	}
+
+	str := 	src[0]
+	for _, v := range sqpm.Validators {
+		if !v(str) {
+			return nil, errors.New("a validation test failed")
+		}
+	}
+	return str, nil
+}
+
+func (sqpm StringQueryParameterMapper) Encode(src interface{}) ([]string, error) {
+	s, ok := src.(string)
+	if !ok {
+		return nil, errors.New("improper type")
+	}
+
+	return []string{s}, nil
+}
+
+type IntQueryParameterMapper struct {
+	Validators []func(int) bool
+}
+
+func (iqpm IntQueryParameterMapper) Decode(src []string) (interface{}, error) {
+	if len(src) != 1 {
+		return nil, errors.New("expected only one value")
+	}
+
+	num, err := strconv.Atoi(src[0])
+	if err != nil {
+		return nil, errors.New("param could not be converted to integer")
+	}
+
+	for _, v := range iqpm.Validators {
+		if !v(num) {
+			return nil, errors.New("a validation test failed")
+		}
+	}
+	return num, nil
+}
+
+func (iqpm IntQueryParameterMapper) Encode(src interface{}) ([]string, error) {
+	n, ok := src.(int)
+	if !ok {
+		return nil, errors.New("improper type")
+	}
+	return []string{strconv.Itoa(n)}, nil
+}
+
+type StrSliceQueryParameterMapper struct {
+	Validators []func([]string) bool
+	UnderlyingQueryParameterMapper QueryParameterMapper
+}
+
+func (sqpm StrSliceQueryParameterMapper) Decode(src []string) (interface{}, error) {
+	for _, val := range sqpm.Validators {
+		if !val(src) {
+		}
+	}
+
+	var retVal []string
+	// My brain has been sufficiently poisoned by this code.
+	// There's probably a better way to do this, but this works and keeps QueryMap.Decode
+	// ignorant of the internals of the fields
+	for _, s := range src {
+		v, err := sqpm.UnderlyingQueryParameterMapper.Decode([]string{s})
+		if err != nil {
+			return nil, err
+		}
+		retVal = append(retVal, v.(string))
+	}
+	return retVal, nil
+}
+
+func (sqpm StrSliceQueryParameterMapper) Encode(src interface{}) ([]string, error) {
+	slice, ok := src.([]interface{})
+	if !ok {
+		return nil, errors.New("improper type")
+	}
+
+	var retSlice []string
+	for _, v := range slice {
+		s, err := sqpm.UnderlyingQueryParameterMapper.Encode(v)
+		if err != nil {
+			return nil, errors.New("error in encoding slice internals: " + err.Error())
+		}
+		retSlice = append(retSlice, s[0])
+	}
+
+	return retSlice, nil
 }
