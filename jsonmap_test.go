@@ -3,6 +3,7 @@ package jsonmap
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/url"
 	"reflect"
 	"regexp"
@@ -1710,9 +1711,10 @@ func TestValidThingWithEnumerableInterface(t *testing.T) {
 }
 
 type DogStruct struct {
-	Age int
-	Name string
+	Age    int
+	Name   string
 	Owners []string
+	IsDead bool
 }
 
 func StrRangeFactory(min, max int) func(string) bool {
@@ -1744,7 +1746,7 @@ var DogParamMap = QueryMap{
 	Parameters: []MappedParameter{
 		{
 			StructFieldName: "Age",
-			ParameterName: "age",
+			ParameterName:   "age",
 			Mapper: IntQueryParameterMapper{
 				[]func(int) bool{
 					IntRangeFactory(0, 100),
@@ -1753,7 +1755,7 @@ var DogParamMap = QueryMap{
 		},
 		{
 			StructFieldName: "Name",
-			ParameterName: "name",
+			ParameterName:   "name",
 			Mapper: StringQueryParameterMapper{
 				[]func(string) bool{
 					StrRangeFactory(1, 10),
@@ -1763,9 +1765,9 @@ var DogParamMap = QueryMap{
 		},
 		{
 			StructFieldName: "Owners",
-			ParameterName: "owners",
+			ParameterName:   "owners",
 			Mapper: StrSliceQueryParameterMapper{
-				[]func([]string) bool {
+				[]func([]string) bool{
 					SliceRangeFactory(0, 3),
 				},
 				StringQueryParameterMapper{
@@ -1776,12 +1778,17 @@ var DogParamMap = QueryMap{
 				},
 			},
 		},
+		{
+			StructFieldName: "IsDead",
+			ParameterName:   "is_dead",
+			Mapper:          BoolQueryParameterMapper{},
+		},
 	},
 }
 
 type RequestFilter struct {
-	UUID string
-	Count int
+	UUID   string
+	Count  int
 	States []string
 	Search string
 }
@@ -1820,16 +1827,21 @@ var RequestFilterMapping = QueryMap{
 	},
 }
 
-
 func TestParamMapping(t *testing.T) {
-	urlQuery, _ := url.ParseQuery(`owners=Alice&name=Spot&owners=Bob&age=10`)
+	urlQuery, _ := url.ParseQuery(`owners=Alice&name=Spot&owners=Bob&age=10&is_dead=false`)
 	dog := DogStruct{}
 
 	err := DogParamMap.Decode(urlQuery, &dog)
 	require.NoError(t, err)
 	require.Equal(t, dog.Age, 10)
 	require.Equal(t, dog.Name, "Spot")
+	require.Equal(t, dog.IsDead, false)
 	require.EqualValues(t, dog.Owners, []string{"Alice", "Bob"})
+
+	newMap := make(map[string][]string)
+	err = DogParamMap.Encode(dog, newMap)
+	require.NoError(t, err)
+	require.EqualValues(t, urlQuery, newMap)
 
 	urlQuery, _ = url.ParseQuery(`count=38&uuid=00000000-0000-1000-9000-000000000000&search=foobar`)
 	filter := RequestFilter{}
@@ -1845,4 +1857,27 @@ func TestParamMapping(t *testing.T) {
 	urlQuery, _ = url.ParseQuery("count=1&uuid=00000000-0000-1000-9000-000000000000&search=\xDAbar")
 	err = RequestFilterMapping.Decode(urlQuery, &filter)
 	require.Error(t, err, "a validation test failed")
+
+}
+
+func TestHeaderMap(t *testing.T) {
+	header := http.Header{}
+	header.Add("name", "spot")
+	header.Add("owners", "alice")
+	header.Add("owners", "bob")
+	header.Add("is_dead", "false")
+	header.Add("age", "10")
+
+	dog := DogStruct{}
+	err := DogParamMap.DecodeHeader(header, &dog)
+	require.NoError(t, err)
+	require.Equal(t, dog.Age, 10)
+	require.Equal(t, dog.Name, "spot")
+	require.Equal(t, dog.IsDead, false)
+	require.EqualValues(t, dog.Owners, []string{"alice", "bob"})
+
+	var newHeader http.Header
+	newHeader = make(map[string][]string)
+	err = DogParamMap.EncodeHeader(dog, newHeader)
+	require.NoError(t, err)
 }
