@@ -45,7 +45,9 @@ func (qm QueryMap) Decode(urlQuery map[string][]string, dst interface{}) error {
 		field := dstVal.FieldByName(param.StructFieldName)
 		fieldVal, err := param.Mapper.Decode(urlQuery[param.ParameterName])
 		if err != nil {
-			return fmt.Errorf("error ocurred while reading value: %s",
+			return fmt.Errorf("error ocurred while reading value (%s) into param %s: %s",
+				urlQuery[param.ParameterName],
+				param.StructFieldName,
 				err.Error(),
 			)
 		}
