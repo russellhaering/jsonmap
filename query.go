@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strconv"
+	"time"
 )
 
 // This is the overarching struct used to transform structs into url params
@@ -98,6 +100,7 @@ type MappedParameter struct {
 	StructFieldName string
 	ParameterName   string
 	Mapper          QueryParameterMapper
+	ExplicitZero	bool  // Opposite of omitempty. Will include in URL.Values iff true
 }
 
 // QueryParameterMapper defines how Query value and struct are to be transformed
@@ -133,6 +136,19 @@ func (sqpm StringQueryParameterMapper) Encode(src reflect.Value) ([]string, erro
 		return nil, fmt.Errorf("expected string but got: %s", src.Kind())
 	}
 	return []string{src.String()}, nil
+}
+
+// Some useful validators
+func StringRangeValidator(min, max int) func(string) bool {
+	return func(s string) bool {
+		return min <= len(s) && len(s) <= max
+	}
+}
+
+func StringRegexValidator(r *regexp.Regexp) func(string) bool {
+	return func(s string) bool {
+		return r.MatchString(s)
+	}
 }
 
 // Does this need validators?
@@ -184,6 +200,74 @@ func (iqpm IntQueryParameterMapper) Encode(src reflect.Value) ([]string, error) 
 		return nil, fmt.Errorf("expected int but got: %s", src.Kind())
 	}
 	return []string{strconv.FormatInt(src.Int(), 10)}, nil // Itoa doesn't take int64
+}
+
+type Uint64QueryParameterMapper struct {
+	Validators []func(uint64) bool
+}
+
+func (uqpm Uint64QueryParameterMapper) Decode(src []string) (interface{}, error) {
+	if len(src) != 1 {
+		return nil, fmt.Errorf("expected one value, but got %d", len(src))
+	}
+
+	num, err := strconv.ParseUint(src[0], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("param could not be converted to uint64: %s", err.Error())
+	}
+
+	for _, v := range uqpm.Validators {
+		if !v(num) {
+			return nil, errors.New("a validation test failed")
+		}
+	}
+	return num, nil
+}
+
+func (uqpm Uint64QueryParameterMapper) Encode(src reflect.Value) ([]string, error) {
+	if src.Kind() != reflect.Uint64 {
+		return nil, fmt.Errorf("expected uint64 but got: %s", src.Kind())
+	}
+	return []string{strconv.FormatUint(src.Uint(), 10)}, nil
+}
+
+type TimeQueryParameterMapper struct {
+	Validators                     []func(time.Time) bool
+}
+
+func (tqpm TimeQueryParameterMapper) Decode(src []string) (interface{}, error) {
+	if len(src) != 1 {
+		return nil, fmt.Errorf("expected one value, but got %d", len(src))
+	}
+
+	t := time.Time{}
+	err := t.UnmarshalText([]byte(src[0]))
+	if err != nil {
+		return nil, fmt.Errorf("param could not be marshalled to time.Time: %s", err.Error())
+	}
+
+	for _, v := range tqpm.Validators {
+		if !v(t) {
+			return nil, errors.New("a validation test failed")
+		}
+	}
+	return t, nil
+}
+
+func (tqpm TimeQueryParameterMapper) Encode(src reflect.Value) ([]string, error) {
+	if src.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("expected struct but got: %s", src.Kind())
+	}
+	if src.Type() != reflect.TypeOf(time.Time{}) {
+		return nil, fmt.Errorf("expected time.Time but got: %s", src.Type())
+	}
+
+	b, err := src.Interface().(time.Time).MarshalText()
+	if err != nil {
+		return nil, err
+	}
+
+	return []string{string(b)}, nil
 }
 
 type StrSliceQueryParameterMapper struct {

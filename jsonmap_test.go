@@ -1715,24 +1715,14 @@ type dogStruct struct {
 	Name   string
 	Owners []string
 	IsDead bool
+	Birthday time.Time
 }
 
 // Ostensibly non-testing versions of this would have error checking and such
-func strRangeFactory(min, max int) func(string) bool {
-	return func(s string) bool {
-		return min <= len(s) && len(s) <= max
-	}
-}
 
 func intRangeFactory(min, max int) func(int) bool {
 	return func(n int) bool {
 		return min <= n && n <= max
-	}
-}
-
-func strRegexFactory(r *regexp.Regexp) func(string) bool {
-	return func(s string) bool {
-		return r.MatchString(s)
 	}
 }
 
@@ -1759,8 +1749,8 @@ var dogParamMap = QueryMap{
 			ParameterName:   "name",
 			Mapper: StringQueryParameterMapper{
 				[]func(string) bool{
-					strRangeFactory(1, 10),
-					strRegexFactory(regexp.MustCompile(".*")),
+					StringRangeValidator(1, 10),
+					StringRegexValidator(regexp.MustCompile(".*")),
 				},
 			},
 		},
@@ -1773,8 +1763,8 @@ var dogParamMap = QueryMap{
 				},
 				StringQueryParameterMapper{
 					[]func(string) bool{
-						strRangeFactory(1, 10),
-						strRegexFactory(regexp.MustCompile("[a-z]")),
+						StringRangeValidator(1, 10),
+						StringRegexValidator(regexp.MustCompile("[a-z]")),
 					},
 				},
 			},
@@ -1783,6 +1773,11 @@ var dogParamMap = QueryMap{
 			StructFieldName: "IsDead",
 			ParameterName:   "is_dead",
 			Mapper:          BoolQueryParameterMapper{},
+		},
+		{
+			StructFieldName: "Birthday",
+			ParameterName:   "birthday",
+			Mapper:			 TimeQueryParameterMapper{},
 		},
 	},
 }
@@ -1795,31 +1790,32 @@ type requestFilter struct {
 }
 
 var requestFilterMapping = QueryMap{
-	requestFilter{},
-	[]MappedParameter{
+	UnderlyingType: requestFilter{},
+	Parameters: []MappedParameter{
 		{
-			"UUID",
-			"uuid",
-			StringQueryParameterMapper{
+			StructFieldName: "UUID",
+			ParameterName: "uuid",
+			Mapper: StringQueryParameterMapper{
 				[]func(string) bool{
-					strRegexFactory(uuidRegex),
+					StringRegexValidator(uuidRegex),
 					utf8.ValidString,
 				},
 			},
 		},
 		{
-			"Count",
-			"count",
-			IntQueryParameterMapper{
+			StructFieldName: "Count",
+			ParameterName: "count",
+			Mapper: IntQueryParameterMapper{
 				[]func(int) bool{
 					intRangeFactory(0, 500),
 				},
 			},
 		},
+
 		{
-			"Search",
-			"search",
-			StringQueryParameterMapper{
+			StructFieldName: "Search",
+			ParameterName: "search",
+			Mapper: StringQueryParameterMapper{
 				[]func(string) bool{
 					utf8.ValidString,
 				},
@@ -1829,7 +1825,10 @@ var requestFilterMapping = QueryMap{
 }
 
 func TestParamMapping(t *testing.T) {
-	urlQuery, _ := url.ParseQuery(`owners=Alice&name=Spot&owners=Bob&age=10&is_dead=false`)
+	//tt := time.Unix(0, 0)
+	tt := time.Now()
+	tb, _ := tt.MarshalText()
+	urlQuery, _ := url.ParseQuery(`owners=Alice&name=Spot&owners=Bob&age=10&is_dead=false&birthday=` + string(tb))
 	dog := dogStruct{}
 
 	err := dogParamMap.Decode(urlQuery, &dog)
@@ -1837,6 +1836,7 @@ func TestParamMapping(t *testing.T) {
 	require.Equal(t, dog.Age, 10)
 	require.Equal(t, dog.Name, "Spot")
 	require.Equal(t, dog.IsDead, false)
+	require.Equal(t, dog.Birthday.Format(time.RFC3339), tt.Format(time.RFC3339))
 	require.EqualValues(t, dog.Owners, []string{"Alice", "Bob"})
 
 	newMap := make(map[string][]string)
