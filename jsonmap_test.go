@@ -1711,11 +1711,12 @@ func TestValidThingWithEnumerableInterface(t *testing.T) {
 }
 
 type dogStruct struct {
-	Age    int
-	Name   string
-	Owners []string
-	IsDead bool
+	Age      int
+	Name     string
+	Owners   []string
+	IsDead   bool
 	Birthday time.Time
+	Location *string
 }
 
 // Ostensibly non-testing versions of this would have error checking and such
@@ -1777,7 +1778,14 @@ var dogParamMap = QueryMap{
 		{
 			StructFieldName: "Birthday",
 			ParameterName:   "birthday",
-			Mapper:			 TimeQueryParameterMapper{},
+			Mapper:          TimeQueryParameterMapper{},
+		},
+		{
+			StructFieldName: "Location",
+			ParameterName:   "location",
+			Mapper: StrPointerQueryParameterMapper{
+				UnderlyingQueryParameterMapper: StringQueryParameterMapper{},
+			},
 		},
 	},
 }
@@ -1794,7 +1802,7 @@ var requestFilterMapping = QueryMap{
 	Parameters: []MappedParameter{
 		{
 			StructFieldName: "UUID",
-			ParameterName: "uuid",
+			ParameterName:   "uuid",
 			Mapper: StringQueryParameterMapper{
 				[]func(string) bool{
 					StringRegexValidator(uuidRegex),
@@ -1804,7 +1812,7 @@ var requestFilterMapping = QueryMap{
 		},
 		{
 			StructFieldName: "Count",
-			ParameterName: "count",
+			ParameterName:   "count",
 			Mapper: IntQueryParameterMapper{
 				[]func(int) bool{
 					intRangeFactory(0, 500),
@@ -1814,7 +1822,7 @@ var requestFilterMapping = QueryMap{
 
 		{
 			StructFieldName: "Search",
-			ParameterName: "search",
+			ParameterName:   "search",
 			Mapper: StringQueryParameterMapper{
 				[]func(string) bool{
 					utf8.ValidString,
@@ -1825,10 +1833,9 @@ var requestFilterMapping = QueryMap{
 }
 
 func TestParamMapping(t *testing.T) {
-	//tt := time.Unix(0, 0)
 	tt := time.Now()
 	tb, _ := tt.MarshalText()
-	urlQuery, _ := url.ParseQuery(`owners=Alice&name=Spot&owners=Bob&age=10&is_dead=false&birthday=` + string(tb))
+	urlQuery, _ := url.ParseQuery(`location=barcelona&owners=Alice&name=Spot&owners=Bob&age=10&is_dead=false&birthday=` + string(tb))
 	dog := dogStruct{}
 
 	err := dogParamMap.Decode(urlQuery, &dog)
@@ -1838,6 +1845,7 @@ func TestParamMapping(t *testing.T) {
 	require.Equal(t, dog.IsDead, false)
 	require.Equal(t, dog.Birthday.Format(time.RFC3339), tt.Format(time.RFC3339))
 	require.EqualValues(t, dog.Owners, []string{"Alice", "Bob"})
+	require.Equal(t, *dog.Location, "barcelona")
 
 	newMap := make(map[string][]string)
 	err = dogParamMap.Encode(dog, newMap)
@@ -1858,7 +1866,6 @@ func TestParamMapping(t *testing.T) {
 	urlQuery, _ = url.ParseQuery("count=1&uuid=00000000-0000-1000-9000-000000000000&search=\xDAbar")
 	err = requestFilterMapping.Decode(urlQuery, &filter)
 	require.Error(t, err, "a validation test failed")
-
 }
 
 func TestHeaderMap(t *testing.T) {

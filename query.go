@@ -22,7 +22,11 @@ type QueryMap struct {
 func (qm QueryMap) Encode(src interface{}, urlQuery map[string][]string) error {
 	srcVal := reflect.ValueOf(src)
 	for _, p := range qm.Parameters {
-		strVal, err := p.Mapper.Encode(srcVal.FieldByName(p.StructFieldName))
+		pVal := srcVal.FieldByName(p.StructFieldName)
+		if pVal.IsZero() && p.OmitEmpty {
+			continue
+		}
+		strVal, err := p.Mapper.Encode(pVal)
 		if err != nil {
 			return errors.New("error in encoding struct: " + err.Error())
 		}
@@ -45,7 +49,12 @@ func (qm QueryMap) Decode(urlQuery map[string][]string, dst interface{}) error {
 	dstVal := reflect.ValueOf(dst).Elem()
 	for _, param := range qm.Parameters {
 		field := dstVal.FieldByName(param.StructFieldName)
-		fieldVal, err := param.Mapper.Decode(urlQuery[param.ParameterName])
+		paramValue := urlQuery[param.ParameterName]
+		if len(paramValue) == 0 {
+			continue
+		}
+
+		fieldVal, err := param.Mapper.Decode(paramValue)
 		if err != nil {
 			return fmt.Errorf("error ocurred while reading value (%s) into param %s: %s",
 				urlQuery[param.ParameterName],
@@ -65,6 +74,9 @@ func (qm QueryMap) EncodeHeader(src interface{}, headers http.Header) error {
 	srcVal := reflect.ValueOf(src)
 	for _, p := range qm.Parameters {
 		field := srcVal.FieldByName(p.StructFieldName)
+		if field.IsZero() && p.OmitEmpty {
+			continue
+		}
 		sliVal, err := p.Mapper.Encode(field)
 		if err != nil {
 			return errors.New("error in encoding struct: " + err.Error())
@@ -84,7 +96,12 @@ func (qm QueryMap) DecodeHeader(headers http.Header, dst interface{}) error {
 	dstVal := reflect.ValueOf(dst).Elem()
 	for _, param := range qm.Parameters {
 		field := dstVal.FieldByName(param.StructFieldName)
-		fieldVal, err := param.Mapper.Decode(headers[http.CanonicalHeaderKey(param.ParameterName)])
+		headerVal := headers[http.CanonicalHeaderKey(param.ParameterName)]
+		if len(headerVal) == 0 {
+			continue
+		}
+
+		fieldVal, err := param.Mapper.Decode(headerVal)
 		if err != nil {
 			return err
 		}
@@ -100,7 +117,7 @@ type MappedParameter struct {
 	StructFieldName string
 	ParameterName   string
 	Mapper          QueryParameterMapper
-	ExplicitZero	bool  // Opposite of omitempty. Will include in URL.Values iff true
+	OmitEmpty	bool
 }
 
 // QueryParameterMapper defines how Query value and struct are to be transformed
@@ -310,4 +327,27 @@ func (sqpm StrSliceQueryParameterMapper) Encode(src reflect.Value) ([]string, er
 	}
 
 	return retSlice, nil
+}
+
+type StrPointerQueryParameterMapper struct {
+	UnderlyingQueryParameterMapper QueryParameterMapper
+}
+
+func (pqpm StrPointerQueryParameterMapper) Decode(src []string) (interface{}, error) {
+	if len(src) != 1 {
+		return nil, fmt.Errorf("expected one value, but got %d", len(src))
+	}
+	v, err := pqpm.UnderlyingQueryParameterMapper.Decode(src)
+	if err != nil {
+		return nil, fmt.Errorf("error occurred while decoding struct")
+	}
+	v2 := v.(string)
+	return &v2, nil
+}
+
+func (pqpm StrPointerQueryParameterMapper) Encode(src reflect.Value) ([]string, error) {
+	if src.Type() != reflect.PtrTo(reflect.TypeOf("")) {
+		return nil, fmt.Errorf("expected pointer but got: %s", src.Kind())
+	}
+	return []string{src.Elem().String()}, nil
 }
