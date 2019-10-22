@@ -1721,8 +1721,8 @@ type dogStruct struct {
 
 // Ostensibly non-testing versions of this would have error checking and such
 
-func intRangeFactory(min, max int) func(int) bool {
-	return func(n int) bool {
+func intRangeFactory(min, max int64) func(int64) bool {
+	return func(n int64) bool {
 		return min <= n && n <= max
 	}
 }
@@ -1740,7 +1740,7 @@ var dogParamMap = QueryMap{
 			StructFieldName: "Age",
 			ParameterName:   "age",
 			Mapper: IntQueryParameterMapper{
-				[]func(int) bool{
+				Validators: []func(int64) bool{
 					intRangeFactory(0, 100),
 				},
 			},
@@ -1814,7 +1814,7 @@ var requestFilterMapping = QueryMap{
 			StructFieldName: "Count",
 			ParameterName:   "count",
 			Mapper: IntQueryParameterMapper{
-				[]func(int) bool{
+				Validators: []func(int64) bool{
 					intRangeFactory(0, 500),
 				},
 			},
