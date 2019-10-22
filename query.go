@@ -63,7 +63,7 @@ func (qm QueryMap) Decode(urlQuery map[string][]string, dst interface{}) error {
 		field := dstVal.FieldByName(param.StructFieldName)
 		decodedParam, err := param.Mapper.Decode(paramValue)
 		if err != nil {
-			 errs.AddError(NewValidationError("error ocurred while reading value (%s) into param %s: %s",
+			errs.AddError(NewValidationError("error ocurred while reading value (%s) into param %s: %s",
 				urlQuery[param.ParameterName],
 				param.StructFieldName,
 				err.Error(),
@@ -109,22 +109,41 @@ func (qm QueryMap) DecodeHeader(headers http.Header, dst interface{}) error {
 		return errors.New("attempting to decode into the wrong struct")
 	}
 
+	// First sanity check to ensure that the struct passed in matches
+	// the struct the QueryMap was designed to handle
+	if reflect.ValueOf(dst).Elem().Type() != reflect.TypeOf(qm.UnderlyingType) {
+		return fmt.Errorf("attempting to decode into mismatched struct: expected %s but got %s",
+			reflect.TypeOf(qm.UnderlyingType),
+			reflect.ValueOf(dst).Elem().Type(),
+		)
+	}
+
+	errs := &MultiValidationError{}
 	dstVal := reflect.ValueOf(dst).Elem()
 	for _, param := range qm.Parameters {
-		field := dstVal.FieldByName(param.StructFieldName)
 		headerVal := headers[http.CanonicalHeaderKey(param.ParameterName)]
 		if len(headerVal) == 0 {
 			continue
 		}
 
-		fieldVal, err := param.Mapper.Decode(headerVal)
+		field := dstVal.FieldByName(param.StructFieldName)
+		decodedHeader, err := param.Mapper.Decode(headerVal)
 		if err != nil {
-			return err
+			errs.AddError(NewValidationError("error ocurred while reading value (%s) into param %s: %s",
+				headerVal,
+				param.StructFieldName,
+				err.Error(),
+			))
+			continue
 		}
 
-		field.Set(reflect.ValueOf(fieldVal))
+		field.Set(reflect.ValueOf(decodedHeader))
 	}
-	return nil
+
+	if len(errs.Errors()) == 0 {
+		return nil
+	}
+	return errs
 }
 
 // MappedParameter corresponds to each field in a specific struct,
@@ -217,7 +236,7 @@ func (bqpm BoolQueryParameterMapper) Encode(src reflect.Value) ([]string, error)
 
 type IntQueryParameterMapper struct {
 	Validators []func(int64) bool
-	BitSize	int
+	BitSize    int
 }
 
 func (iqpm IntQueryParameterMapper) Decode(src []string) (interface{}, error) {
@@ -225,12 +244,11 @@ func (iqpm IntQueryParameterMapper) Decode(src []string) (interface{}, error) {
 		return nil, NewValidationError("expected only one value")
 	}
 
-
 	num, err := strconv.ParseInt(src[0], 10, iqpm.BitSize)
 	if err != nil {
 		return nil, NewValidationError("param could not be converted to integer: %s",
-										err.Error(),
-					)
+			err.Error(),
+		)
 	}
 
 	for _, v := range iqpm.Validators {
@@ -264,14 +282,13 @@ func (iqpm IntQueryParameterMapper) Encode(src reflect.Value) ([]string, error) 
 
 type UintQueryParameterMapper struct {
 	Validators []func(uint64) bool
-	BitSize	int
+	BitSize    int
 }
 
 func (uqpm UintQueryParameterMapper) Decode(src []string) (interface{}, error) {
 	if len(src) != 1 {
 		return nil, NewValidationError("expected only one value")
 	}
-
 
 	num, err := strconv.ParseUint(src[0], 10, uqpm.BitSize)
 	if err != nil {
