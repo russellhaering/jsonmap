@@ -1735,7 +1735,7 @@ func sliceRangeFactory(min, max int) func([]string) bool {
 
 var dogParamMap = QueryMap{
 	UnderlyingType: dogStruct{},
-	Parameters: []MappedParameter{
+	ParameterMaps: []ParameterMap{
 		{
 			StructFieldName: "Age",
 			ParameterName:   "age",
@@ -1799,7 +1799,7 @@ type requestFilter struct {
 
 var requestFilterMapping = QueryMap{
 	UnderlyingType: requestFilter{},
-	Parameters: []MappedParameter{
+	ParameterMaps: []ParameterMap{
 		{
 			StructFieldName: "UUID",
 			ParameterName:   "uuid",
@@ -1851,6 +1851,11 @@ func TestParamMapping(t *testing.T) {
 	err = dogParamMap.Encode(dog, newMap)
 	require.NoError(t, err)
 	require.EqualValues(t, urlQuery, newMap)
+
+	urlQuery, _ = url.ParseQuery("")
+	dog = dogStruct{}
+	err = dogParamMap.Decode(urlQuery, &dog)
+	require.NoError(t, err)
 
 	urlQuery, _ = url.ParseQuery(`count=38&uuid=00000000-0000-1000-9000-000000000000&search=foobar`)
 	filter := requestFilter{}
