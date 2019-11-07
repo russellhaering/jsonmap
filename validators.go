@@ -11,27 +11,27 @@ import (
 var uuidRegex = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 type StringValidator struct {
-	minLen   int
-	maxLen   int
-	re       *regexp.Regexp
-	reErrMsg string
+	MinLen   int
+	MaxLen   int
+	RE       *regexp.Regexp
+	REErrMsg string
 }
 
 func (v *StringValidator) ValidateString(s string) (string, error) {
-	if len(s) < v.minLen {
-		return "", NewValidationError("too short, must be at least %d characters", v.minLen)
+	if len(s) < v.MinLen {
+		return "", NewValidationError("too short, must be at least %d characters", v.MinLen)
 	}
 
-	if len(s) > v.maxLen {
-		return "", NewValidationError("too long, may not be more than %d characters", v.maxLen)
+	if len(s) > v.MaxLen {
+		return "", NewValidationError("too long, may not be more than %d characters", v.MaxLen)
 	}
 
-	if v.re != nil && !v.re.MatchString(s) {
-		if v.reErrMsg != "" {
-			return "", NewValidationError(v.reErrMsg)
+	if v.RE != nil && !v.RE.MatchString(s) {
+		if v.REErrMsg != "" {
+			return "", NewValidationError(v.REErrMsg)
 		}
 
-		return "", NewValidationError("must match regular expression: %s", v.re.String())
+		return "", NewValidationError("must match regular expression: %s", v.RE.String())
 	}
 	return s, nil
 }
@@ -46,26 +46,26 @@ func (v *StringValidator) Validate(value interface{}) (interface{}, error) {
 }
 
 func (v *StringValidator) Regex(re *regexp.Regexp) *StringValidator {
-	v.re = re
+	v.RE = re
 	return v
 }
 
 func (v *StringValidator) RegexError(re *regexp.Regexp, errMsg string) *StringValidator {
-	v.re = re
-	v.reErrMsg = errMsg
+	v.RE = re
+	v.REErrMsg = errMsg
 	return v
 }
 
 func String(minLen int, maxLen int) *StringValidator {
 	return &StringValidator{
-		minLen: minLen,
-		maxLen: maxLen,
+		MinLen: minLen,
+		MaxLen: maxLen,
 	}
 }
 
-type booleanValidator struct{}
+type BooleanValidator struct{}
 
-func (v *booleanValidator) Validate(value interface{}) (interface{}, error) {
+func (v *BooleanValidator) Validate(value interface{}) (interface{}, error) {
 	b, ok := value.(bool)
 	if !ok {
 		return nil, NewValidationError("not a boolean")
@@ -74,17 +74,17 @@ func (v *booleanValidator) Validate(value interface{}) (interface{}, error) {
 }
 
 func Boolean() Validator {
-	return &booleanValidator{}
+	return &BooleanValidator{}
 }
 
 // TODO: The spectrum of numeric types deserves more thought. Do we ship
 // independent validators for each?
-type integerValidator struct {
-	minVal int
-	maxVal int
+type IntegerValidator struct {
+	MinVal int
+	MaxVal int
 }
 
-func (v *integerValidator) Validate(value interface{}) (interface{}, error) {
+func (v *IntegerValidator) Validate(value interface{}) (interface{}, error) {
 	// Numeric values come in as a float64. This almost certainly has some weird
 	// properties in extreme cases, but JSON probably isn't the right choice in
 	// those cases.
@@ -94,37 +94,37 @@ func (v *integerValidator) Validate(value interface{}) (interface{}, error) {
 	}
 
 	i := int(f)
-	if i < v.minVal {
-		return nil, NewValidationError("too small, must be at least %d", v.minVal)
+	if i < v.MinVal {
+		return nil, NewValidationError("too small, must be at least %d", v.MinVal)
 	}
 
-	if i > v.maxVal {
-		return nil, NewValidationError("too large, may not be larger than %d", v.maxVal)
+	if i > v.MaxVal {
+		return nil, NewValidationError("too large, may not be larger than %d", v.MaxVal)
 	}
 
 	return i, nil
 }
 
 func Integer(minVal, maxVal int) Validator {
-	return &integerValidator{
-		minVal: minVal,
-		maxVal: maxVal,
+	return &IntegerValidator{
+		MinVal: minVal,
+		MaxVal: maxVal,
 	}
 }
 
-type interfaceValidator struct{}
+type InterfaceValidator struct{}
 
-func (v *interfaceValidator) Validate(value interface{}) (interface{}, error) {
+func (v *InterfaceValidator) Validate(value interface{}) (interface{}, error) {
 	return value, nil
 }
 
-func Interface() *interfaceValidator {
-	return &interfaceValidator{}
+func Interface() *InterfaceValidator {
+	return &InterfaceValidator{}
 }
 
 type LossyUint64Validator struct {
-	minVal uint64
-	maxVal uint64
+	MinVal uint64
+	MaxVal uint64
 }
 
 func (v *LossyUint64Validator) Validate(value interface{}) (interface{}, error) {
@@ -134,31 +134,31 @@ func (v *LossyUint64Validator) Validate(value interface{}) (interface{}, error) 
 	}
 
 	i := uint64(f)
-	if i < v.minVal {
-		return nil, NewValidationError("too small, must be at least %d", v.minVal)
+	if i < v.MinVal {
+		return nil, NewValidationError("too small, must be at least %d", v.MinVal)
 	}
 
-	if i > v.maxVal {
-		return nil, NewValidationError("too large, may not be larger than %d", v.maxVal)
+	if i > v.MaxVal {
+		return nil, NewValidationError("too large, may not be larger than %d", v.MaxVal)
 	}
 
 	return i, nil
 }
 
 func (v *LossyUint64Validator) Min(min uint64) {
-	v.minVal = min
+	v.MinVal = min
 }
 
 func (v *LossyUint64Validator) Max(max uint64) {
-	v.maxVal = max
+	v.MaxVal = max
 }
 
 // Validate numbers as a uint64. In this process they will be stored as a
 // float64, which can lead to a loss of precision as high as 1024(?).
 func LossyUint64() *LossyUint64Validator {
 	return &LossyUint64Validator{
-		minVal: 0,
-		maxVal: math.MaxUint64,
+		MinVal: 0,
+		MaxVal: math.MaxUint64,
 	}
 }
 
@@ -185,23 +185,23 @@ func UUIDString() *UUIDStringValidator {
 	return &UUIDStringValidator{}
 }
 
-type ssm struct {
-	sv *StringValidator
+type StringsSliceMapper struct {
+	StringValidator *StringValidator
 }
 
 // Used for StringsArray, which has a "V" field containing []string.
 // Optionally can take a string validator to apply to each entry.
-func StringsSliceMapper(sv *StringValidator) TypeMap {
-	return &ssm{sv: sv}
+func NewStringsSliceMapper(sv *StringValidator) TypeMap {
+	return &StringsSliceMapper{StringValidator: sv}
 }
 
-func (ss *ssm) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+func (ss *StringsSliceMapper) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	var err error
 	v := dstValue.FieldByName("V")
 
 	underlying := v.Interface()
 	if _, ok := underlying.([]string); !ok {
-		panic("target field V for StringsSliceMapper is not a []string")
+		panic("target field V for NewStringsSliceMapper is not a []string")
 	}
 
 	if partial == nil {
@@ -222,8 +222,8 @@ func (ss *ssm) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}
 			return fmt.Errorf("Error converting %#v to string", dv)
 		}
 
-		if ss.sv != nil {
-			s, err = ss.sv.ValidateString(s)
+		if ss.StringValidator != nil {
+			s, err = ss.StringValidator.ValidateString(s)
 			if err != nil {
 				return err
 			}
@@ -237,7 +237,7 @@ func (ss *ssm) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}
 	return nil
 }
 
-func (s *ssm) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+func (s *StringsSliceMapper) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	if src.Kind() == reflect.Ptr {
 		src = src.Elem()
 	}
@@ -252,26 +252,25 @@ func (s *ssm) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (js
 	return RawMessage{data}, nil
 }
 
-type enumeratedValuesValidator struct {
-	allowedSlice  []string
-	allowedValues map[string]struct{}
+type EnumeratedValuesValidator struct {
+	AllowedSlice  []string
+	AllowedValues map[string]struct{}
 }
 
-func (v *enumeratedValuesValidator) Validate(value interface{}) (interface{}, error) {
+func (v *EnumeratedValuesValidator) Validate(value interface{}) (interface{}, error) {
 	s, ok := value.(string)
 	if !ok {
 		return nil, NewValidationError("not a string")
 	}
-	_, ok = v.allowedValues[s]
+	_, ok = v.AllowedValues[s]
 
 	if !ok {
-		serialized, err := json.Marshal(v.allowedSlice)
+		serialized, err := json.Marshal(v.AllowedSlice)
 		if err != nil {
-			// allowedSlice should be a static value provided by the programmer,
+			// AllowedSlice should be a static value provided by the programmer,
 			// so an error serializing it definitely represents a progrramming error.
 			panic(err)
 		}
-
 
 		// If we want to use the invalid string value for error messages, return the string value instead of nil and in
 		// the calling function, check if the return value is valid instead of checking if an error was returned, when
@@ -284,13 +283,13 @@ func (v *enumeratedValuesValidator) Validate(value interface{}) (interface{}, er
 }
 
 func OneOf(allowed ...string) Validator {
-	v := &enumeratedValuesValidator{
-		allowedSlice:  allowed,
-		allowedValues: map[string]struct{}{},
+	v := &EnumeratedValuesValidator{
+		AllowedSlice:  allowed,
+		AllowedValues: map[string]struct{}{},
 	}
 
 	for _, value := range allowed {
-		v.allowedValues[value] = struct{}{}
+		v.AllowedValues[value] = struct{}{}
 	}
 
 	return v
