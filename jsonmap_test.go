@@ -23,11 +23,11 @@ type InnerThing struct {
 }
 
 type AnotherInnerThing struct {
-	Foo   string
-	AnInt int
-	ABool bool
+	Foo        string
+	AnInt      int
+	ABool      bool
 	HappenedAt time.Time
-	ThanksGo interface{}
+	ThanksGo   interface{}
 }
 
 type AnotherOuterThing struct {
@@ -88,7 +88,7 @@ type OuterVariableThing struct {
 }
 
 type OuterVariableThingInnerTypeOneOf struct {
-	InnerType  string `json:"inner_type,omitempty"`
+	InnerType  string      `json:"inner_type,omitempty"`
 	InnerValue interface{} `json:"inner_thing"`
 }
 
@@ -98,7 +98,7 @@ type OuterVariableThingInnerTypeNoJsonTag struct {
 }
 
 type OuterVariableThingInnerTypeIgnoredJsonTag struct {
-	InnerType  string `json:"-"`
+	InnerType  string      `json:"-"`
 	InnerValue interface{} `json:"inner_thing"`
 }
 
@@ -210,13 +210,13 @@ var AnotherInnerThingTypeMap = StructMap{
 			StructFieldName: "HappenedAt",
 			JSONFieldName:   "happened_at",
 			Contains:        Time(),
-			Optional: true,
+			Optional:        true,
 		},
 		{
 			StructFieldName: "ThanksGo",
 			JSONFieldName:   "thanks",
 			Validator:       OneOf("foo", "bar"),
-			Optional: true,
+			Optional:        true,
 		},
 	},
 }
@@ -242,7 +242,6 @@ var AnotherOuterThingTypeMap = StructMap{
 		},
 	},
 }
-
 
 var MapOfInnerThingTypeMap = StructMap{
 	OuterInnerThingMap{},
@@ -397,16 +396,15 @@ var OuterVariableThingWithOneOfInnerTypeMap = StructMap{
 			StructFieldName: "InnerValue",
 			JSONFieldName:   "inner_thing",
 			Contains: VariableType("InnerType", map[string]TypeMap{
-				"foo": InnerThingTypeMap,
-				"bar": OtherInnerThingTypeMap,
-				"these": PrimitiveMap(Integer(-5, 10)),
-				"are": PrimitiveMap(String(1, 5)),
+				"foo":     InnerThingTypeMap,
+				"bar":     OtherInnerThingTypeMap,
+				"these":   NewPrimitiveMap(Integer(-5, 10)),
+				"are":     NewPrimitiveMap(String(1, 5)),
 				"allowed": InnerThingTypeMap,
 			}),
 		},
 	},
 }
-
 
 var OuterVariableThingWithInnerTypeNoJsonTagTypeMap = StructMap{
 	OuterVariableThingInnerTypeNoJsonTag{},
@@ -536,7 +534,7 @@ var ThingWithSliceOfPrimitivesTypeMap = StructMap{
 		{
 			StructFieldName: "Strings",
 			JSONFieldName:   "strings",
-			Contains:        SliceOf(PrimitiveMap(String(1, 16))),
+			Contains:        SliceOf(NewPrimitiveMap(String(1, 16))),
 		},
 	},
 }
@@ -546,7 +544,7 @@ var ThingWithInnerMapTypeMap = StructMap{
 		{
 			StructFieldName: "InnerMap",
 			JSONFieldName:   "inner_map",
-			Contains:        MapOf(PrimitiveMap(Interface())),
+			Contains:        MapOf(NewPrimitiveMap(Interface())),
 		},
 	},
 }
@@ -557,7 +555,7 @@ var ThingWithMapOfInterfacesTypeMap = StructMap{
 		{
 			StructFieldName: "Interfaces",
 			JSONFieldName:   "interfaces",
-			Contains:        MapOf(PrimitiveMap(Interface())),
+			Contains:        MapOf(NewPrimitiveMap(Interface())),
 		},
 	},
 }
@@ -568,7 +566,7 @@ var ThingWithMapOfStringsTypeMap = StructMap{
 		{
 			StructFieldName: "Strings",
 			JSONFieldName:   "strings",
-			Contains:        MapOf(PrimitiveMap(String(0, 5))),
+			Contains:        MapOf(NewPrimitiveMap(String(0, 5))),
 		},
 	},
 }
@@ -1277,7 +1275,6 @@ func TestMarshalVariableTypeThing(t *testing.T) {
 	}
 }
 
-
 func TestMarshalVariableTypeThingIntegerInvalid(t *testing.T) {
 	v := &OuterVariableThingInnerTypeOneOf{}
 	err := TestTypeMapper.Unmarshal(EmptyContext, []byte(`{"inner_type":"these","inner_thing":15}`), v)
@@ -1659,15 +1656,15 @@ func TestGenericUnmarshalInvalidInput(t *testing.T) {
 		ErrorMessage string
 	}{
 		{
-			Input:        `{"thanks": "baz"}`,
-			Into:         ThingWithEnumerableInterface{},
+			Input: `{"thanks": "baz"}`,
+			Into:  ThingWithEnumerableInterface{},
 			ErrorMessage: `Validation Errors: 
 /thanks: Value must be one of: ["foo","bar"]
 `,
 		},
 		{
-			Input:        `{"thanks": 12}`,
-			Into:         ThingWithEnumerableInterface{},
+			Input: `{"thanks": 12}`,
+			Into:  ThingWithEnumerableInterface{},
 			ErrorMessage: `Validation Errors: 
 /thanks: not a string
 `,

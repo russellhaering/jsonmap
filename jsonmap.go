@@ -22,7 +22,7 @@ var (
 )
 
 type FlattenedPathError struct {
-	Path string
+	Path    string
 	Message string
 }
 
@@ -32,7 +32,7 @@ func (e *FlattenedPathError) String() string {
 
 func NewFlattenedPathError(path, message string) *FlattenedPathError {
 	return &FlattenedPathError{
-		Path: path,
+		Path:    path,
 		Message: message,
 	}
 }
@@ -54,7 +54,7 @@ func (e *MultiValidationError) Error() string {
 	return b.String()
 }
 
-func (e *MultiValidationError) AddError(err *ValidationError, path ...string)  {
+func (e *MultiValidationError) AddError(err *ValidationError, path ...string) {
 	path = append(path, err.Field)
 	pointer := jsonpointer.NewJSONPointerFromTokens(&path)
 	if err.Message != "" {
@@ -88,7 +88,7 @@ func (e *ValidationError) Error() string {
 	return msg
 }
 
-func (e *ValidationError) AddError(err *ValidationError)  {
+func (e *ValidationError) AddError(err *ValidationError) {
 	e.NestedErrors = append(e.NestedErrors, err)
 }
 
@@ -98,7 +98,7 @@ func (e *ValidationError) SetField(field string) {
 
 func NewValidationErrorWithField(field, message string) *ValidationError {
 	return &ValidationError{
-		Field: field,
+		Field:   field,
 		Message: message,
 	}
 }
@@ -336,8 +336,8 @@ func (sm StructMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Valu
 
 type SliceMap struct {
 	Contains TypeMap
-	minLen *int
-	maxLen *int
+	MinLen   *int
+	MaxLen   *int
 }
 
 func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
@@ -353,7 +353,7 @@ func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfa
 
 	// Appending to a reflect.Value returns a new reflect.Value despite the
 	// indirection. So we'll keep a reference to the original one, and Set()
-	// it when we're done constructing the desired Value.
+	// it when we'RE done constructing the desired Value.
 	result := dstValue
 
 	elementType := dstValue.Type().Elem()
@@ -366,7 +366,6 @@ func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfa
 		dstElem := reflect.New(elementType).Elem()
 
 		err := sm.Contains.Unmarshal(ctx, &dstValue, val, dstElem)
-
 
 		if err != nil {
 
@@ -434,42 +433,42 @@ func SliceOf(elem TypeMap) TypeMap {
 func SliceOfMax(elem TypeMap, max int) TypeMap {
 	return SliceMap{
 		Contains: elem,
-		maxLen: &max,
+		MaxLen:   &max,
 	}
 }
 
 func SliceOfMin(elem TypeMap, min int) TypeMap {
 	return SliceMap{
 		Contains: elem,
-		minLen: &min,
+		MinLen:   &min,
 	}
 }
 
 func SliceOfRange(elem TypeMap, min, max int) TypeMap {
 	return SliceMap{
 		Contains: elem,
-		minLen: &min,
-		maxLen: &max,
+		MinLen:   &min,
+		MaxLen:   &max,
 	}
 }
 
 func (sm *SliceMap) validateSliceWithinRange(data []interface{}) error {
-	if sm.maxLen == nil && sm.minLen == nil {
+	if sm.MaxLen == nil && sm.MinLen == nil {
 		return nil
-	} else if sm.maxLen == nil {
-		if len(data) < *sm.minLen {
-			return NewValidationError("must have at least %d elements", *sm.minLen)
+	} else if sm.MaxLen == nil {
+		if len(data) < *sm.MinLen {
+			return NewValidationError("must have at least %d elements", *sm.MinLen)
 		}
-	} else if sm.minLen == nil {
-		if len(data) > *sm.maxLen {
-			return NewValidationError("must have at most %d elements", *sm.maxLen)
+	} else if sm.MinLen == nil {
+		if len(data) > *sm.MaxLen {
+			return NewValidationError("must have at most %d elements", *sm.MaxLen)
 		}
-	} else if *sm.maxLen == *sm.minLen {
-		if len(data) != *sm.maxLen {
-			return NewValidationError("must have %d elements", *sm.maxLen)
+	} else if *sm.MaxLen == *sm.MinLen {
+		if len(data) != *sm.MaxLen {
+			return NewValidationError("must have %d elements", *sm.MaxLen)
 		}
-	} else if len(data) > *sm.maxLen || len(data) < *sm.minLen {
-		return NewValidationError("must have between %d and %d elements", *sm.minLen, *sm.maxLen)
+	} else if len(data) > *sm.MaxLen || len(data) < *sm.MinLen {
+		return NewValidationError("must have between %d and %d elements", *sm.MinLen, *sm.MaxLen)
 	}
 
 	return nil
@@ -592,8 +591,8 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 
 	if !ok {
 		// NOTE: This error message isn't great because we don't have a way to know
-		// the JSON field name uponw which we're switching.
-		//TODO: include JSON field name uponw which we're switching to other error messages
+		// the JSON field name uponw which we'RE switching.
+		//TODO: include JSON field name uponw which we'RE switching to other error messages
 
 		if keyString != "" {
 			return nil, NewValidationError("invalid type identifier: '%s'", keyString)
@@ -692,12 +691,12 @@ func (m *passthroughMarshaler) Marshal(ctx Context, parent *reflect.Value, field
 	return RawMessage{data}, nil
 }
 
-type primitiveMap struct {
+type PrimitiveMap struct {
 	passthroughMarshaler
 	validator Validator
 }
 
-func (m *primitiveMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+func (m *PrimitiveMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	val, err := m.validator.Validate(partial)
 	if err != nil {
 		return err
@@ -709,17 +708,17 @@ func (m *primitiveMap) Unmarshal(ctx Context, parent *reflect.Value, partial int
 	return nil
 }
 
-func PrimitiveMap(v Validator) TypeMap {
-	return &primitiveMap{
+func NewPrimitiveMap(v Validator) TypeMap {
+	return &PrimitiveMap{
 		validator: v,
 	}
 }
 
-type timeMap struct {
+type TimeMap struct {
 	passthroughMarshaler
 }
 
-func (m *timeMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+func (m *TimeMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	underlying := dstValue.Interface()
 	if _, ok := underlying.(time.Time); !ok {
 		panic("target field for jsonmap.Time() is not a time.Time")
@@ -743,7 +742,7 @@ func (m *timeMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfac
 }
 
 func Time() TypeMap {
-	return &timeMap{}
+	return &TimeMap{}
 }
 
 type TypeMapper struct {
