@@ -353,7 +353,7 @@ func (sm SliceMap) Unmarshal(ctx Context, parent *reflect.Value, partial interfa
 
 	// Appending to a reflect.Value returns a new reflect.Value despite the
 	// indirection. So we'll keep a reference to the original one, and Set()
-	// it when we'RE done constructing the desired Value.
+	// it when we're done constructing the desired Value.
 	result := dstValue
 
 	elementType := dstValue.Type().Elem()
@@ -591,8 +591,8 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 
 	if !ok {
 		// NOTE: This error message isn't great because we don't have a way to know
-		// the JSON field name uponw which we'RE switching.
-		//TODO: include JSON field name uponw which we'RE switching to other error messages
+		// the JSON field name uponw which we're switching.
+		//TODO: include JSON field name uponw which we're switching to other error messages
 
 		if keyString != "" {
 			return nil, NewValidationError("invalid type identifier: '%s'", keyString)
