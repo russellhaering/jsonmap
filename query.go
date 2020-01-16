@@ -159,7 +159,7 @@ type QueryParameterMapper interface {
 
 // Examples of mappers
 type StringQueryParameterMapper struct {
-	Validators []func(string) bool
+	Validators map[string]func(string) bool
 }
 
 func (sqpm StringQueryParameterMapper) Decode(src ...string) (interface{}, error) {
@@ -172,9 +172,9 @@ func (sqpm StringQueryParameterMapper) Decode(src ...string) (interface{}, error
 	}
 
 	str := src[0]
-	for _, v := range sqpm.Validators {
+	for name, v := range sqpm.Validators {
 		if !v(str) {
-			return nil, NewValidationError("a validation test failed")
+			return nil, NewValidationError("a validation test failed: " + name)
 		}
 	}
 
@@ -232,7 +232,7 @@ func (bqpm BoolQueryParameterMapper) Encode(src reflect.Value) ([]string, error)
 }
 
 type IntQueryParameterMapper struct {
-	Validators []func(int64) bool
+	Validators map[string]func(int64) bool
 	BitSize    int
 }
 
@@ -253,9 +253,9 @@ func (iqpm IntQueryParameterMapper) Decode(src ...string) (interface{}, error) {
 			)
 		}
 
-		for _, v := range iqpm.Validators {
+		for name, v := range iqpm.Validators {
 			if !v(num) {
-				return nil, NewValidationError("a validation test failed")
+				return nil, NewValidationError("a validation test failed: " + name)
 			}
 		}
 	}
@@ -284,7 +284,7 @@ func (iqpm IntQueryParameterMapper) Encode(src reflect.Value) ([]string, error) 
 }
 
 type UintQueryParameterMapper struct {
-	Validators []func(uint64) bool
+	Validators map[string]func(uint64) bool
 	BitSize    int
 }
 
@@ -303,9 +303,9 @@ func (uqpm UintQueryParameterMapper) Decode(src ...string) (interface{}, error) 
 			)
 		}
 
-		for _, v := range uqpm.Validators {
+		for name, v := range uqpm.Validators {
 			if !v(num) {
-				return nil, NewValidationError("a validation test failed")
+				return nil, NewValidationError("a validation test failed: " + name)
 			}
 		}
 	}
@@ -334,7 +334,7 @@ func (uqpm UintQueryParameterMapper) Encode(src reflect.Value) ([]string, error)
 }
 
 type TimeQueryParameterMapper struct {
-	Validators []func(time.Time) bool
+	Validators map[string]func(time.Time) bool
 }
 
 func (tqpm TimeQueryParameterMapper) Decode(src ...string) (interface{}, error) {
@@ -352,9 +352,9 @@ func (tqpm TimeQueryParameterMapper) Decode(src ...string) (interface{}, error) 
 		return nil, NewValidationError("param could not be marshalled to time.Time: %s", err.Error())
 	}
 
-	for _, v := range tqpm.Validators {
+	for name, v := range tqpm.Validators {
 		if !v(t) {
-			return nil, NewValidationError("a validation test failed")
+			return nil, NewValidationError("a validation test failed: " + name)
 		}
 	}
 	return t, nil
@@ -377,14 +377,14 @@ func (tqpm TimeQueryParameterMapper) Encode(src reflect.Value) ([]string, error)
 }
 
 type StrSliceQueryParameterMapper struct {
-	Validators                     []func([]string) bool
+	Validators                     map[string]func([]string) bool
 	UnderlyingQueryParameterMapper QueryParameterMapper
 }
 
 func (sqpm StrSliceQueryParameterMapper) Decode(src ...string) (interface{}, error) {
-	for _, val := range sqpm.Validators {
+	for name, val := range sqpm.Validators {
 		if !val(src) {
-			return nil, NewValidationError("A validation test failed")
+			return nil, NewValidationError("a validation test failed: " + name)
 		}
 	}
 

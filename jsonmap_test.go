@@ -1740,8 +1740,8 @@ var dogParamMap = QueryMap{
 			StructFieldName: "Age",
 			ParameterName:   "age",
 			Mapper: IntQueryParameterMapper{
-				Validators: []func(int64) bool{
-					intRangeFactory(0, 100),
+				Validators: map[string]func(int64) bool{
+					"range": intRangeFactory(0, 100),
 				},
 			},
 		},
@@ -1749,9 +1749,9 @@ var dogParamMap = QueryMap{
 			StructFieldName: "Name",
 			ParameterName:   "name",
 			Mapper: StringQueryParameterMapper{
-				[]func(string) bool{
-					StringRangeValidator(1, 10),
-					StringRegexValidator(regexp.MustCompile(".*")),
+				map[string]func(string) bool{
+					"range": StringRangeValidator(1, 10),
+					"regex": StringRegexValidator(regexp.MustCompile(".*")),
 				},
 			},
 		},
@@ -1759,13 +1759,13 @@ var dogParamMap = QueryMap{
 			StructFieldName: "Owners",
 			ParameterName:   "owners",
 			Mapper: StrSliceQueryParameterMapper{
-				[]func([]string) bool{
-					sliceRangeFactory(0, 3),
+				map[string]func([]string) bool{
+					"range": sliceRangeFactory(0, 3),
 				},
 				StringQueryParameterMapper{
-					[]func(string) bool{
-						StringRangeValidator(1, 10),
-						StringRegexValidator(regexp.MustCompile("[a-z]")),
+					map[string]func(string) bool{
+						"range": StringRangeValidator(1, 10),
+						"regex": StringRegexValidator(regexp.MustCompile("[a-z]")),
 					},
 				},
 			},
@@ -1804,9 +1804,9 @@ var requestFilterMapping = QueryMap{
 			StructFieldName: "UUID",
 			ParameterName:   "uuid",
 			Mapper: StringQueryParameterMapper{
-				[]func(string) bool{
-					StringRegexValidator(uuidRegex),
-					utf8.ValidString,
+				map[string]func(string) bool{
+					"regex": StringRegexValidator(uuidRegex),
+					"valid": utf8.ValidString,
 				},
 			},
 		},
@@ -1814,8 +1814,8 @@ var requestFilterMapping = QueryMap{
 			StructFieldName: "Count",
 			ParameterName:   "count",
 			Mapper: IntQueryParameterMapper{
-				Validators: []func(int64) bool{
-					intRangeFactory(0, 500),
+				Validators: map[string]func(int64) bool{
+					"range": intRangeFactory(0, 500),
 				},
 			},
 		},
@@ -1824,8 +1824,8 @@ var requestFilterMapping = QueryMap{
 			StructFieldName: "Search",
 			ParameterName:   "search",
 			Mapper: StringQueryParameterMapper{
-				[]func(string) bool{
-					utf8.ValidString,
+				map[string]func(string) bool{
+					"valid": utf8.ValidString,
 				},
 			},
 		},
