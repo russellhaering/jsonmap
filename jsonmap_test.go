@@ -3,6 +3,7 @@ package jsonmap
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -1721,15 +1722,21 @@ type dogStruct struct {
 
 // Ostensibly non-testing versions of this would have error checking and such
 
-func intRangeFactory(min, max int64) func(int64) bool {
-	return func(n int64) bool {
-		return min <= n && n <= max
+func intRangeFactory(min, max int64) func(int64) error {
+	return func(n int64) error {
+		if min <= n && n <= max {
+			return nil
+		}
+		return fmt.Errorf("input %d out of range %d and %d", n, min, max)
 	}
 }
 
-func sliceRangeFactory(min, max int) func([]string) bool {
-	return func(sli []string) bool {
-		return min <= len(sli) && len(sli) <= max
+func sliceRangeFactory(min, max int) func([]string) error {
+	return func(sli []string) error {
+		if min <= len(sli) && len(sli) <= max {
+			return nil
+		}
+		return fmt.Errorf("input %s out of len range %d and %d", sli, min, max)
 	}
 }
 
@@ -1740,8 +1747,8 @@ var dogParamMap = QueryMap{
 			StructFieldName: "Age",
 			ParameterName:   "age",
 			Mapper: IntQueryParameterMapper{
-				Validators: map[string]func(int64) bool{
-					"range": intRangeFactory(0, 100),
+				Validators: []func(int64) error{
+					intRangeFactory(0, 100),
 				},
 			},
 		},
@@ -1749,9 +1756,9 @@ var dogParamMap = QueryMap{
 			StructFieldName: "Name",
 			ParameterName:   "name",
 			Mapper: StringQueryParameterMapper{
-				map[string]func(string) bool{
-					"range": StringRangeValidator(1, 10),
-					"regex": StringRegexValidator(regexp.MustCompile(".*")),
+				[]func(string) error{
+					StringRangeValidator(1, 10),
+					StringRegexValidator(regexp.MustCompile(".*")),
 				},
 			},
 		},
@@ -1759,13 +1766,13 @@ var dogParamMap = QueryMap{
 			StructFieldName: "Owners",
 			ParameterName:   "owners",
 			Mapper: StrSliceQueryParameterMapper{
-				map[string]func([]string) bool{
-					"range": sliceRangeFactory(0, 3),
+				[]func([]string) error{
+					sliceRangeFactory(0, 3),
 				},
 				StringQueryParameterMapper{
-					map[string]func(string) bool{
-						"range": StringRangeValidator(1, 10),
-						"regex": StringRegexValidator(regexp.MustCompile("[a-z]")),
+					[]func(string) error{
+						StringRangeValidator(1, 10),
+						StringRegexValidator(regexp.MustCompile("[a-z]")),
 					},
 				},
 			},
@@ -1797,6 +1804,13 @@ type requestFilter struct {
 	Search string
 }
 
+func validString(s string) error {
+	if utf8.ValidString(s) {
+		return nil
+	}
+	return fmt.Errorf("input %s not valid string", s)
+}
+
 var requestFilterMapping = QueryMap{
 	UnderlyingType: requestFilter{},
 	ParameterMaps: []ParameterMap{
@@ -1804,9 +1818,9 @@ var requestFilterMapping = QueryMap{
 			StructFieldName: "UUID",
 			ParameterName:   "uuid",
 			Mapper: StringQueryParameterMapper{
-				map[string]func(string) bool{
-					"regex": StringRegexValidator(uuidRegex),
-					"valid": utf8.ValidString,
+				[]func(string) error{
+					StringRegexValidator(uuidRegex),
+					validString,
 				},
 			},
 		},
@@ -1814,8 +1828,8 @@ var requestFilterMapping = QueryMap{
 			StructFieldName: "Count",
 			ParameterName:   "count",
 			Mapper: IntQueryParameterMapper{
-				Validators: map[string]func(int64) bool{
-					"range": intRangeFactory(0, 500),
+				Validators: []func(int64) error{
+					intRangeFactory(0, 500),
 				},
 			},
 		},
@@ -1824,8 +1838,8 @@ var requestFilterMapping = QueryMap{
 			StructFieldName: "Search",
 			ParameterName:   "search",
 			Mapper: StringQueryParameterMapper{
-				map[string]func(string) bool{
-					"valid": utf8.ValidString,
+				[]func(string) error{
+					validString,
 				},
 			},
 		},

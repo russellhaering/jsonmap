@@ -159,7 +159,7 @@ type QueryParameterMapper interface {
 
 // Examples of mappers
 type StringQueryParameterMapper struct {
-	Validators map[string]func(string) bool
+	Validators []func(string) error
 }
 
 func (sqpm StringQueryParameterMapper) Decode(src ...string) (interface{}, error) {
@@ -172,9 +172,9 @@ func (sqpm StringQueryParameterMapper) Decode(src ...string) (interface{}, error
 	}
 
 	str := src[0]
-	for name, v := range sqpm.Validators {
-		if !v(str) {
-			return nil, NewValidationError("a validation test failed: " + name)
+	for _, v := range sqpm.Validators {
+		if err := v(str); err != nil {
+			return nil, NewValidationError(err.Error())
 		}
 	}
 
@@ -190,15 +190,21 @@ func (sqpm StringQueryParameterMapper) Encode(src reflect.Value) ([]string, erro
 }
 
 // Some useful validators
-func StringRangeValidator(min, max int) func(string) bool {
-	return func(s string) bool {
-		return min <= len(s) && len(s) <= max
+func StringRangeValidator(min, max int) func(string) error {
+	return func(s string) error {
+		if min <= len(s) && len(s) <= max {
+			return nil
+		}
+		return fmt.Errorf("input %s out of len range %d and %d", s, min, max)
 	}
 }
 
-func StringRegexValidator(r *regexp.Regexp) func(string) bool {
-	return func(s string) bool {
-		return r.MatchString(s)
+func StringRegexValidator(r *regexp.Regexp) func(string) error {
+	return func(s string) error {
+		if r.MatchString(s) {
+			return nil
+		}
+		return fmt.Errorf("input %s does not match regex %s", s, r.String())
 	}
 }
 
@@ -232,7 +238,7 @@ func (bqpm BoolQueryParameterMapper) Encode(src reflect.Value) ([]string, error)
 }
 
 type IntQueryParameterMapper struct {
-	Validators map[string]func(int64) bool
+	Validators []func(int64) error
 	BitSize    int
 }
 
@@ -253,9 +259,9 @@ func (iqpm IntQueryParameterMapper) Decode(src ...string) (interface{}, error) {
 			)
 		}
 
-		for name, v := range iqpm.Validators {
-			if !v(num) {
-				return nil, NewValidationError("a validation test failed: " + name)
+		for _, v := range iqpm.Validators {
+			if err := v(num); err != nil {
+				return nil, NewValidationError(err.Error())
 			}
 		}
 	}
@@ -284,7 +290,7 @@ func (iqpm IntQueryParameterMapper) Encode(src reflect.Value) ([]string, error) 
 }
 
 type UintQueryParameterMapper struct {
-	Validators map[string]func(uint64) bool
+	Validators []func(uint64) error
 	BitSize    int
 }
 
@@ -303,9 +309,9 @@ func (uqpm UintQueryParameterMapper) Decode(src ...string) (interface{}, error) 
 			)
 		}
 
-		for name, v := range uqpm.Validators {
-			if !v(num) {
-				return nil, NewValidationError("a validation test failed: " + name)
+		for _, v := range uqpm.Validators {
+			if err := v(num); err != nil {
+				return nil, NewValidationError(err.Error())
 			}
 		}
 	}
@@ -334,7 +340,7 @@ func (uqpm UintQueryParameterMapper) Encode(src reflect.Value) ([]string, error)
 }
 
 type TimeQueryParameterMapper struct {
-	Validators map[string]func(time.Time) bool
+	Validators []func(time.Time) error
 }
 
 func (tqpm TimeQueryParameterMapper) Decode(src ...string) (interface{}, error) {
@@ -352,9 +358,9 @@ func (tqpm TimeQueryParameterMapper) Decode(src ...string) (interface{}, error) 
 		return nil, NewValidationError("param could not be marshalled to time.Time: %s", err.Error())
 	}
 
-	for name, v := range tqpm.Validators {
-		if !v(t) {
-			return nil, NewValidationError("a validation test failed: " + name)
+	for _, v := range tqpm.Validators {
+		if v(t) != nil {
+			return nil, NewValidationError(err.Error())
 		}
 	}
 	return t, nil
@@ -377,14 +383,14 @@ func (tqpm TimeQueryParameterMapper) Encode(src reflect.Value) ([]string, error)
 }
 
 type StrSliceQueryParameterMapper struct {
-	Validators                     map[string]func([]string) bool
+	Validators                     []func([]string) error
 	UnderlyingQueryParameterMapper QueryParameterMapper
 }
 
 func (sqpm StrSliceQueryParameterMapper) Decode(src ...string) (interface{}, error) {
-	for name, val := range sqpm.Validators {
-		if !val(src) {
-			return nil, NewValidationError("a validation test failed: " + name)
+	for _, val := range sqpm.Validators {
+		if err := val(src); err != nil {
+			return nil, NewValidationError(err.Error())
 		}
 	}
 
