@@ -564,15 +564,15 @@ type toStringable interface {
 }
 
 // This is a horrible hack of the go type system
-type variableType struct {
-	switchOnFieldName string
-	types             map[string]TypeMap
+type Discriminator struct {
+	PropertyName string
+	Mapping      map[string]TypeMap
 }
 
-func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
-	typeKeyField := parent.FieldByName(vt.switchOnFieldName)
+func (vt *Discriminator) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
+	typeKeyField := parent.FieldByName(vt.PropertyName)
 	if !typeKeyField.IsValid() {
-		panic("no such underlying field: " + vt.switchOnFieldName)
+		panic("no such underlying field: " + vt.PropertyName)
 	}
 
 	keyString := ""
@@ -587,7 +587,7 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 		panic("cannot convert underlying field to string: " + typeKeyField.String())
 	}
 
-	typeMap, ok := vt.types[keyString]
+	typeMap, ok := vt.Mapping[keyString]
 
 	if !ok {
 		// NOTE: This error message isn't great because we don't have a way to know
@@ -598,7 +598,7 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 			return nil, NewValidationError("invalid type identifier: '%s'", keyString)
 		}
 
-		if f, found := parent.Type().FieldByName(vt.switchOnFieldName); found {
+		if f, found := parent.Type().FieldByName(vt.PropertyName); found {
 			jsonField := parseJsonTag(f)
 			if jsonField != "" {
 				return nil, NewValidationError("cannot validate, invalid input for '%s'", jsonField)
@@ -611,7 +611,7 @@ func (vt *variableType) pickTypeMap(parent *reflect.Value) (TypeMap, error) {
 	return typeMap, nil
 }
 
-func (vt *variableType) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
+func (vt *Discriminator) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
 	tm, err := vt.pickTypeMap(parent)
 	if err != nil {
 		return err
@@ -620,7 +620,7 @@ func (vt *variableType) Unmarshal(ctx Context, parent *reflect.Value, partial in
 	return tm.Unmarshal(ctx, parent, partial, dstValue)
 }
 
-func (vt *variableType) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
+func (vt *Discriminator) Marshal(ctx Context, parent *reflect.Value, src reflect.Value) (json.Marshaler, error) {
 	if src.IsZero() {
 		return nullRawMessage, nil
 	}
@@ -634,9 +634,9 @@ func (vt *variableType) Marshal(ctx Context, parent *reflect.Value, src reflect.
 }
 
 func VariableType(switchOnFieldName string, types map[string]TypeMap) TypeMap {
-	return &variableType{
-		switchOnFieldName: switchOnFieldName,
-		types:             types,
+	return &Discriminator{
+		PropertyName: switchOnFieldName,
+		Mapping:      types,
 	}
 }
 
@@ -693,11 +693,11 @@ func (m *passthroughMarshaler) Marshal(ctx Context, parent *reflect.Value, field
 
 type PrimitiveMap struct {
 	passthroughMarshaler
-	validator Validator
+	V Validator
 }
 
 func (m *PrimitiveMap) Unmarshal(ctx Context, parent *reflect.Value, partial interface{}, dstValue reflect.Value) error {
-	val, err := m.validator.Validate(partial)
+	val, err := m.V.Validate(partial)
 	if err != nil {
 		return err
 	}
@@ -710,7 +710,7 @@ func (m *PrimitiveMap) Unmarshal(ctx Context, parent *reflect.Value, partial int
 
 func NewPrimitiveMap(v Validator) TypeMap {
 	return &PrimitiveMap{
-		validator: v,
+		V: v,
 	}
 }
 
