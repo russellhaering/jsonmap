@@ -563,7 +563,11 @@ type toStringable interface {
 	ToString() string
 }
 
-// This is a horrible hack of the go type system
+// The discrimator is used to handle cases in which a JSON property may be more than one type
+// (e.g. Human.Pet may be type Dog or Cat). PropertyName is the name of said property and
+// Mapping is a map between the possible types (as strings) and the appropriate TypeMap
+// corresponding to the given type.
+// See https://swagger.io/specification/#discriminatorObject for more information.
 type Discriminator struct {
 	PropertyName string
 	Mapping      map[string]TypeMap
