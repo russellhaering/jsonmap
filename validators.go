@@ -112,6 +112,39 @@ func Integer(minVal, maxVal int) Validator {
 	}
 }
 
+type Uint32Validator struct {
+	MinVal uint32
+	MaxVal uint32
+}
+
+func (v *Uint32Validator) Validate(value interface{}) (interface{}, error) {
+	// Numeric values come in as a float64. This almost certainly has some weird
+	// properties in extreme cases, but JSON probably isn't the right choice in
+	// those cases.
+	f, ok := value.(float64)
+	if !ok || float64(uint32(f)) != f {
+		return nil, NewValidationError("not a uint32")
+	}
+
+	i := uint32(f)
+	if i < v.MinVal {
+		return nil, NewValidationError("too small, must be at least %d", v.MinVal)
+	}
+
+	if i > v.MaxVal {
+		return nil, NewValidationError("too large, may not be larger than %d", v.MaxVal)
+	}
+
+	return i, nil
+}
+
+func UnsignedInteger(minVal, maxVal uint32) Validator {
+	return &Uint32Validator{
+		MinVal: minVal,
+		MaxVal: maxVal,
+	}
+}
+
 type InterfaceValidator struct{}
 
 func (v *InterfaceValidator) Validate(value interface{}) (interface{}, error) {
