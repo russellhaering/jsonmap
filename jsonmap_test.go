@@ -22,13 +22,13 @@ func (v brokenValidator) Validate(interface{}) (interface{}, error) {
 
 type InnerThing struct {
 	Foo   string
-	AnInt int
+	AnInt int64
 	ABool bool
 }
 
 type AnotherInnerThing struct {
 	Foo        string
-	AnInt      int
+	AnInt      int64
 	ABool      bool
 	HappenedAt time.Time
 	ThanksGo   interface{}
