@@ -292,8 +292,16 @@ func (sm StructMap) Marshal(ctx Context, parent *reflect.Value, src reflect.Valu
 					panic("no such underlying field: " + field.StructFieldName)
 				}
 			} else if field.StructGetterName != "" {
-				// TODO: I'm not 100% sure if this works with methods that don't take a pointer
-				srcGetter := src.Addr().MethodByName(field.StructGetterName)
+				var srcGetter reflect.Value
+				if src.CanAddr() {
+					srcGetter = src.Addr().MethodByName(field.StructGetterName)
+				} else {
+					ptr := reflect.New(src.Type())
+					tmp := ptr.Elem()
+					tmp.Set(src)
+					srcGetter = ptr.MethodByName(field.StructGetterName)
+				}
+
 				if !srcGetter.IsValid() {
 					panic("no such underlying getter method: " + field.StructGetterName)
 				}
